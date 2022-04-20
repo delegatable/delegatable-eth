@@ -111,6 +111,17 @@ abstract contract Delegatable is ECRecovery {
 
   }
 
+  // TODO: Migrate this context variable to Diamond storage so this contract can work in a facet.
+  // https://eip2535diamonds.substack.com/p/appstorage-pattern-for-state-variables?s=r
+  address currentContextAddress = address(0);
+  function _setMsgSender (address contextAddress) internal {
+      currentContextAddress = contextAddress;
+  }
+
+  function _msgSender () internal view virtual returns (address) {
+      return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
+  }
+
   function verifyDelegationSignature (SignedDelegation memory signedDelegation) public view returns (bool) {
     Delegation memory delegation = signedDelegation.delegation;
     bytes32 sigHash = getDelegationTypedDataHash(

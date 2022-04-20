@@ -9,7 +9,8 @@ You can read more about what that means, [you can read this](https://roamresearc
 Not that this is far enough along to really use yet, but the intention is that you will:
 
 - inherit your contract from `contracts/Delegatable.sol`.
-- Use the msgSender() "standard" trick: Never call `msg.sender` directly to enforce policy, always call `msgSender()`, so that metaTransactions and other parts of code can assign a custom sender. [Examples here](https://github.com/anydotcrypto/metatransactions).
+- Use the msgSender() "standard" trick: Never call `msg.sender` directly to enforce policy, always call the internal private method `_msgSender()`, so that metaTransactions and other parts of code can assign a custom sender. [Examples here](https://github.com/anydotcrypto/metatransactions).
+- If you are inheriting from multiple contracts that implement `_msgSender`, you may need to implement your own override method as shown in `contracts/YourContract.sol`.
 
 ## Development
 

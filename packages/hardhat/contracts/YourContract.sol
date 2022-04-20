@@ -22,4 +22,8 @@ contract YourContract is Ownable, Delegatable {
       console.log(msg.sender,"set purpose to",purpose);
       //emit SetPurpose(msg.sender, purpose);
   }
+
+  function _msgSender () internal view override(Delegatable, Context) returns (address) {
+      return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
+  }
 }
