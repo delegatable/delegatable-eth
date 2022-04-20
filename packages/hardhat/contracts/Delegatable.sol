@@ -86,29 +86,52 @@ abstract contract Delegatable is ECRecovery {
   // Allows other contracts to call methods on this contract
   // Provided they have a valid SignedDelegation.
   function invoke (Invocation[] calldata invocations, bool allMustSucceed) public {
-    for (uint i=0; i < invocations.length; i++) {
+    address authorized = address(0);
+    bytes32 authHash;
+
+    for (uint i = 0; i < invocations.length; i++) {
       Invocation memory invocation = invocations[i];
       SignedDelegation memory signedDelegation = invocation.authority[i];
       Delegation memory delegation = signedDelegation.delegation;
+      address signer = verifyDelegationSignature(signedDelegation);
 
-      if (
-        !verifyDelegationSignature(signedDelegation)) {
-        if (!allMustSucceed) {
-          continue;
-        } else {
-          revert InvalidSignature({ invocationIndex: i });
-        }
+      // If this is the root delegation, set the msgSender to them.
+      // Else, ensure the signer of this delegation is `authorized`.
+      if (i == 0) {
+        _setMsgSender(signer);
+      } else {
+        require(authorized == signer, "Delegation not signed by valid delegate");
+        // TODO: Verify that caveat re-entrancy does not retain these local assignments.
+        authorized = delegation.delegate;
+        require(delegation.authority == authHash, "Delegation lacks valid authority");
       }
 
-      // Here we perform the custom instruction
+      // Get the hash of this delegation, ensure that it has not been revoked.
+      // Revokability is basically a "free" caveat I'm including. I know, it's more expensive. But it's safer.
+      bytes32 delegationHash; // TODO: Get this hash.
+      require(!isRevoked(delegationHash), "Delegation revoked");
+
+      // Run the proposed transaction by any attached caveats.
+      for (var x = 0; x < delegation.caveats.length; x++) {
+        // Pass each to the target contract's caveat enforcer.
+        // function enforceCaveat (Caveat caveat, Transaction tx) returns (bool);
+      }
+
+      // Store the recipient and hash of this delegation in `authorized` and `authHash`.
     }
+
+    // Here we perform the custom instruction
   }
 
   // Allows any delegator to revoke any outstanding SignedDelegation,
   // Adding it to a revoked list,
   // invalidating any future invocations that would rely on it.
+  mapping(bytes32 => bool) isRevoked;
   function revoke (SignedDelegation[] calldata delegations) public {
-
+    // Get the signer of the SignedDelegation
+    // Require that signer is equal to msgSender()
+    // Get the hash of the SignedDelegation
+    // Set its revoked value to true.
   }
 
   // TODO: Migrate this context variable to Diamond storage so this contract can work in a facet.
@@ -122,7 +145,7 @@ abstract contract Delegatable is ECRecovery {
       return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
   }
 
-  function verifyDelegationSignature (SignedDelegation memory signedDelegation) public view returns (bool) {
+  function verifyDelegationSignature (SignedDelegation memory signedDelegation) public view returns (address) {
     Delegation memory delegation = signedDelegation.delegation;
     bytes32 sigHash = getDelegationTypedDataHash(
       delegation.delegate,
@@ -133,7 +156,7 @@ abstract contract Delegatable is ECRecovery {
     address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
 
     require(signedDelegation.delegation.delegate == recoveredSignatureSigner, 'Invalid signature');
-    return true;
+    return recoveredSignatureSigner;
   }
 
   function getDelegationTypedDataHash(address delegate, bytes32 authority, Caveat[] memory caveats) public view returns (bytes32) {
