@@ -1,0 +1,5 @@
+{
+  "solidity.defaultCompiler": "localNodeModule",
+  "solidity.compileUsingRemoteVersion": "v0.8.13+commit.abaa5c0e",
+  "solidity.compileUsingLocalVersion": "/Users/danfinlay/Documents/scaffold-delegator/packages/hardhat/soljson-v0.8.13+commit.abaa5c0e.js"
+}

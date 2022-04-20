@@ -7,7 +7,6 @@ require("@nomiclabs/hardhat-waffle");
 require("@tenderly/hardhat-tenderly");
 
 require("hardhat-deploy");
-require("hardhat-gas-reporter");
 
 require("@eth-optimism/hardhat-ovm");
 require("@nomiclabs/hardhat-ethers");
@@ -66,10 +65,10 @@ module.exports = {
   networks: {
     localhost: {
       url: "http://localhost:8545",
-      /*      
+      /*
         notice no mnemonic here? it will just use account 0 of the hardhat node to deploy
         (you can put in a mnemonic here to set the deployer locally)
-      
+
       */
     },
 
@@ -279,6 +278,15 @@ module.exports = {
   },
   solidity: {
     compilers: [
+      {
+        version: "0.8.13",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
       {
         version: "0.8.4",
         settings: {
