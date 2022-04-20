@@ -97,13 +97,13 @@ abstract contract Delegatable is ECRecovery {
 
       // If this is the root delegation, set the msgSender to them.
       // Else, ensure the signer of this delegation is `authorized`.
+      // TODO: Verify that caveat re-entrancy does not retain these local assignments.
       if (i == 0) {
         _setMsgSender(signer);
       } else {
         require(authorized == signer, "Delegation not signed by valid delegate");
-        // TODO: Verify that caveat re-entrancy does not retain these local assignments.
-        authorized = delegation.delegate;
         require(delegation.authority == authHash, "Delegation lacks valid authority");
+        authorized = delegation.delegate;
       }
 
       // Get the hash of this delegation, ensure that it has not been revoked.
@@ -117,7 +117,8 @@ abstract contract Delegatable is ECRecovery {
         // function enforceCaveat (Caveat caveat, Transaction tx) returns (bool);
       }
 
-      // Store the recipient and hash of this delegation in `authorized` and `authHash`.
+      // Store the hash of this delegation in `authHash`.
+      authHash = delegationHash;
     }
 
     // Here we perform the custom instruction
