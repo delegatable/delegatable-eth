@@ -85,7 +85,7 @@ abstract contract Delegatable is ECRecovery {
 
   // Allows other contracts to call methods on this contract
   // Provided they have a valid SignedDelegation.
-  function invoke (Invocation[] calldata invocations, bool allMustSucceed) public {
+  function invoke (Invocation[] calldata invocations) public {
     address authorized = address(0);
     bytes32 authHash;
 
@@ -109,10 +109,10 @@ abstract contract Delegatable is ECRecovery {
       // Get the hash of this delegation, ensure that it has not been revoked.
       // Revokability is basically a "free" caveat I'm including. I know, it's more expensive. But it's safer.
       bytes32 delegationHash; // TODO: Get this hash.
-      require(!isRevoked(delegationHash), "Delegation revoked");
+      require(!isRevoked[delegationHash], "Delegation revoked");
 
       // Run the proposed transaction by any attached caveats.
-      for (var x = 0; x < delegation.caveats.length; x++) {
+      for (uint16 x = 0; x < delegation.caveats.length; x++) {
         // Pass each to the target contract's caveat enforcer.
         // function enforceCaveat (Caveat caveat, Transaction tx) returns (bool);
       }
