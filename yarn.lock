@@ -19005,10 +19005,10 @@ signed-varint@^2.0.1:
   dependencies:
     varint "~5.0.0"
 
-signtypeddata-v5@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.npmjs.org/signtypeddata-v5/-/signtypeddata-v5-4.0.0.tgz"
-  integrity sha512-o2KD4gb58DmeGAIS7XJNdhRJkfc7aNNIcggx6iotNLVALpnlzamOJBxNliRiGds8Byyi3RW/CxBbTBlhp+Kq+g==
+signtypeddata-v5@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/signtypeddata-v5/-/signtypeddata-v5-5.0.0.tgz#caf44f3583f256d54d45d25f718d618d52378748"
+  integrity sha512-Ij5WeP5yUPaz2NLcy/d+HJ4tAz5xGAwfeV2eqBvpVWy0uvjx1NUyID4KIadJzFne5mpqyoS8MTXanA1zgW3qqg==
   dependencies:
     ethereumjs-abi "^0.6.8"
     ethereumjs-util "^6.2.1"

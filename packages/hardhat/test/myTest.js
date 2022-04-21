@@ -57,7 +57,7 @@ describe(CONTRACT_NAME, function () {
     const signature = signTypedData({
       privateKey,
       data: typedMessage,
-      version: SignTypedDataVersion.V4,
+      version: SignTypedDataVersion.V5,
     });
     const signedDelegation = {
       signature,
@@ -84,7 +84,7 @@ describe(CONTRACT_NAME, function () {
     const invocationSig = signTypedData({
       privateKey: delegatePrivateKey,
       data: typedInvocationMessage,
-      version: SignTypedDataVersion.V4,
+      version: SignTypedDataVersion.V5,
     });
     const signedInvocation = {
       signature: invocationSig,
