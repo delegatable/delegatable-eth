@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const friendlyTypes = require('../types');
 const BigNumber = ethers.BigNumber;
 const {
   recoverTypedSignature,
@@ -9,9 +10,12 @@ const {
   SignTypedDataVersion,
 } = require('signtypeddata-v5');
 
-const Keyring = require('eth-simple-keyring');
+const types = signTypedDataify(friendlyTypes);
+const CONTRACT_NAME = 'YourContract';
+const ownerHexPrivateKey = 'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+const delegateHexPrivKey = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
-describe("YourContract", function () {
+describe(CONTRACT_NAME, function () {
   it('setPurpose by owner changes purpose', async () => {
     const targetString = 'A totally new purpose!'
     const yourContract = await deployContract();
@@ -30,6 +34,77 @@ describe("YourContract", function () {
     }
   });
 
+  it('can sign a delegation to a second account', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    const targetString = 'A totally DELEGATED purpose!'
+    const yourContract = await deployContract();
+
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [],
+    };
+    const primaryType = 'Delegation';
+    const typedMessage = createTypedMessage(yourContract, delegation, primaryType);
+
+    // Owner signs the delegation:
+    console.log(`Signing delegation with owner keyring`);
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = signTypedData({
+      privateKey,
+      data: typedMessage,
+      version: SignTypedDataVersion.V4,
+    });
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegate signs the invocation message:
+    console.log(`Signing invocation with delegate keyring`);
+    const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
+    const delegatePrivateKey = fromHexString(delegateHexPrivKey);
+    const invocationMessage = {
+      authority: [signedDelegation],
+      replayProtection: {
+        nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        queue: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      },
+      transaction: {
+        to: yourContract.address,
+        from: addr1.address,
+        data: desiredTx.data,
+      },
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocation');
+    const invocationSig = signTypedData({
+      privateKey: delegatePrivateKey,
+      data: typedInvocationMessage,
+      version: SignTypedDataVersion.V4,
+    });
+    const signedInvocation = {
+      signature: invocationSig,
+      invocation: [invocationMessage],
+    }
+
+    // A third party can submit the invocation method to the chain:
+    console.log(`Submitting invocation with third party keyring`);
+    try {
+      console.log(`addr2 is`, addr2)
+      console.log(JSON.stringify(signedInvocation, null, 2));
+      await yourContract.connect(addr2).invoke([signedInvocation]);
+    } catch (err) {
+      console.log(`Problem`, err);
+      console.trace(err);
+    }
+
+    // Verify the change was made:
+    expect(await yourContract.purpose()).to.equal(targetString);
+  })
 });
 
 async function createAccounts(num = 10) {
@@ -78,18 +153,18 @@ async function createDelegations (bidNumbers, yourContract) {
 }
 
 async function deployContract () {
-  const YourContract = await ethers.getContractFactory("YourContract");
-  const yourContract = await YourContract.deploy("YourContract");
+  const YourContract = await ethers.getContractFactory(CONTRACT_NAME);
+  const yourContract = await YourContract.deploy(CONTRACT_NAME);
   return yourContract.deployed();
 }
 
-function createTypedMessage (yourContract, message) {
+function createTypedMessage (yourContract, message, primaryType) {
   const chainId = yourContract.deployTransaction.chainId;
   return {
     types,
     primaryType,
     domain: {
-      name: 'YourContract',
+      name: CONTRACT_NAME,
       version: '1',
       chainId,
       verifyingContract: yourContract.address,
@@ -106,3 +181,24 @@ async function giveEtherTo (address) {
   });
 }
 
+function fromHexString (hexString) {
+  return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+}
+
+function signTypedDataify (friendlyTypes) {
+  const types = {};
+  Object.keys(friendlyTypes).forEach(typeName => {
+    const type = friendlyTypes[typeName];
+    types[typeName] = [];
+
+    Object.keys(friendlyTypes[typeName]).forEach(subTypeName => {
+
+      const subType = friendlyTypes[typeName][subTypeName];
+      types[typeName].push({
+        name: subTypeName,
+        type: subType,
+      });
+    });
+  });
+  return types;
+}
