@@ -252,6 +252,8 @@ abstract contract Delegatable is ECRecovery {
       chainId,
       verifyingContract
     );
+    console.log("The encoded EIP712 domain is:");
+    console.logBytes(encoded);
     return keccak256(encoded);
   }
 
