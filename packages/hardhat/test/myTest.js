@@ -3,12 +3,13 @@ const { ethers } = require("hardhat");
 const friendlyTypes = require('../types');
 const BigNumber = ethers.BigNumber;
 const {
-  recoverTypedSignature,
   signTypedData,
   TypedDataUtils,
   typedSignatureHash,
   SignTypedDataVersion,
+  encodeData,
 } = require('signtypeddata-v5');
+const { encode } = require("punycode");
 
 const types = signTypedDataify(friendlyTypes);
 const CONTRACT_NAME = 'YourContract';
@@ -16,6 +17,7 @@ const ownerHexPrivateKey = 'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae78
 const delegateHexPrivKey = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
 describe(CONTRACT_NAME, function () {
+
   /** 
   it('setPurpose by owner changes purpose', async () => {
     const targetString = 'A totally new purpose!'
@@ -45,7 +47,7 @@ describe(CONTRACT_NAME, function () {
     const yourContract = await deployContract();
 
     const domainHash = await yourContract.domainHash();
-    console.log('contract domainHash:', domainHash); // CORRECT.
+    console.log('contract domainHash:', domainHash);
 
     // Prepare the delegation message:
     // This message has no caveats, and authority 0,
@@ -77,18 +79,20 @@ describe(CONTRACT_NAME, function () {
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
     const delegatePrivateKey = fromHexString(delegateHexPrivKey);
     const invocationMessage = {
-      authority: [signedDelegation],
-      replayProtection: {
-        nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
-        queue: '0x0000000000000000000000000000000000000000000000000000000000000000',
-      },
-      transaction: {
-        to: yourContract.address,
-        from: owner.address,
-        data: desiredTx.data,
-      },
+      batch: [{
+        authority: [signedDelegation],
+        replayProtection: {
+          nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          queue: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        },
+        transaction: {
+          to: yourContract.address,
+          from: owner.address,
+          data: desiredTx.data,
+        },
+      }],
     };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocation');
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
     const invocationSig = signTypedData({
       privateKey: delegatePrivateKey,
       data: typedInvocationMessage,
@@ -96,7 +100,7 @@ describe(CONTRACT_NAME, function () {
     });
     const signedInvocation = {
       signature: invocationSig,
-      invocation: [invocationMessage],
+      invocations: invocationMessage,
     }
 
     // A third party can submit the invocation method to the chain:

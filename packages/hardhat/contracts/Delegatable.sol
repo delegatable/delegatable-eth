@@ -16,10 +16,14 @@ struct Invocation {
   SignedDelegation[] authority;
 }
 
+struct Invocations {
+  Invocation[] batch;
+}
+
 // The signature structure supports an array for batching support.
 // TBD: Should we enforce atomicity of this invocation array?
 struct SignedInvocation {
-  Invocation[] invocation;
+  Invocations invocations;
   bytes signature;
 }
 
@@ -91,11 +95,12 @@ abstract contract Delegatable is ECRecovery {
     bytes32 authHash;
 
     for (uint i = 0; i < signedInvocations.length; i++) {
-      SignedInvocation memory signedInvocation = signedInvocations[i];
+      SignedInvocation calldata signedInvocation = signedInvocations[i];
+      address signer = verifyInvocationSignature(signedInvocation);
       // TODO: Verify the invocation signature.
 
-      for (uint x = 0; x < signedInvocation.invocation.length; x++) {
-        Invocation memory invocation = signedInvocation.invocation[x];
+      for (uint x = 0; x < signedInvocation.invocations.batch.length; x++) {
+        Invocation memory invocation = signedInvocation.invocations.batch[x];
         SignedDelegation memory signedDelegation = invocation.authority[i];
         Delegation memory delegation = signedDelegation.delegation;
         console.log("Invoking with delegate %s", delegation.delegate);
@@ -157,7 +162,7 @@ abstract contract Delegatable is ECRecovery {
       return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
   }
 
-  function verifyDelegationSignature (SignedDelegation memory signedDelegation) public view returns (address) {
+  function verifyDelegationSignature (SignedDelegation memory signedDelegation) public returns (address) {
     Delegation memory delegation = signedDelegation.delegation;
     bytes32 sigHash = getDelegationTypedDataHash(
       delegation.delegate,
@@ -176,7 +181,35 @@ abstract contract Delegatable is ECRecovery {
     return recoveredSignatureSigner;
   }
 
-  function getDelegationTypedDataHash(address delegate, bytes32 authority, Caveat[] memory caveats) public view returns (bytes32) {
+  function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public view returns (address) {
+    address signer = address(0);
+    bytes32 sigHash = getInvocationTypedDataHash(signedInvocation.invocations);
+    return signer;
+  }
+
+  function getInvocationTypedDataHash (Invocations calldata invocations) public view returns (bytes32) {
+    bytes32 packetHash = getInvocationsPacketHash(invocations);
+    bytes32 digest = keccak256(abi.encodePacked(
+      "\x19\x01",
+      domainHash,
+      packetHash
+    ));
+    console.log("Produces the typed data hash digest");
+    console.logBytes32(digest);
+    return digest;
+  }
+
+  function getInvocationsPacketHash(Invocations memory invocations) public view returns (bytes32) {
+    bytes memory encoded = abi.encode(
+      INVOCATIONS_TYPEHASH,
+      invocations
+    );
+    console.log("Encoded:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }
+
+  function getDelegationTypedDataHash(address delegate, bytes32 authority, Caveat[] memory caveats) public returns (bytes32) {
     bytes32 packetHash = getDelegationPacketHash(delegate, authority, caveats);
     console.log("Domain Hash");
     console.logBytes32(domainHash);
@@ -196,7 +229,7 @@ abstract contract Delegatable is ECRecovery {
     address delegate,
     bytes32 authority,
     Caveat[] memory caveat
-  ) public view returns (bytes32) {
+  ) public returns (bytes32) {
     console.log("Delegation typehash:");
     console.logBytes32(DELEGATION_TYPEHASH);
     bytes memory encoded = abi.encode(
@@ -235,6 +268,8 @@ abstract contract Delegatable is ECRecovery {
       "Caveat(address enforcer,bytes terms)"
     )
   );
+
+  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,bytes data)");
 
   bytes32 constant CAVEAT_TYPEHASH = keccak256(
     "Caveat(address enforcer, bytes terms)"

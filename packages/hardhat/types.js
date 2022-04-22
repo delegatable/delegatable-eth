@@ -13,8 +13,12 @@ module.exports = {
     authority: 'SignedDelegation[]',
   },
 
+  Invocations: {
+    batch: 'Invocation[]',
+  },
+
   SignedInvocation: {
-    invocation: 'Invocation[]',
+    invocations: 'Invocations',
     signature: 'bytes',
   },
 
