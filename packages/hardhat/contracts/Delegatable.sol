@@ -196,13 +196,18 @@ abstract contract Delegatable is ECRecovery {
     address delegate,
     bytes32 authority,
     Caveat[] memory caveat
-  ) public pure returns (bytes32) {
-    return keccak256(abi.encode(
+  ) public view returns (bytes32) {
+    console.log("Delegation typehash:");
+    console.logBytes32(DELEGATION_TYPEHASH);
+    bytes memory encoded = abi.encode(
       DELEGATION_TYPEHASH,
       delegate,
       authority,
       caveat
-    ));
+    );
+    console.log("Encoded:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
   }
 
   function getEIP712TypeHash() public view returns (bytes32) {
@@ -223,14 +228,11 @@ abstract contract Delegatable is ECRecovery {
   bytes32 constant DELEGATION_TYPEHASH = keccak256(
     // Inspiration for nested struct types from Airswap:
     // https://github.com/airswap/airswap-protocols/blob/4d0e4d977bf9788756ec1ee0f85ff7e692cd44e8/source/types/contracts/Types.sol
-    abi.encodePacked(
-      "Delegation(",
-        "address delegate,",
-        "Caveat caveat,",
-        "SignedDelegation authority",
-      ")"
-      "Caveat(address enforcer, bytes terms)",
-      "SignedDelegation(Delegation delegation, bytes signature)"
+    abi.encodePacked("Delegation(",
+      "address delegate,",
+      "bytes32 authority,",
+      "Caveat[] caveats)",
+      "Caveat(address enforcer,bytes terms)"
     )
   );
 
