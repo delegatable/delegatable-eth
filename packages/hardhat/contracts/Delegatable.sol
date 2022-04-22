@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "./ECRecovery.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 // import "@openzeppelin/contracts/access/Ownable.sol"; //https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
 
 // This whole library is a way to allow transactions to be invoked by delegates.
@@ -86,6 +86,7 @@ abstract contract Delegatable is ECRecovery {
   // Allows other contracts to call methods on this contract
   // Provided they have a valid SignedDelegation.
   function invoke (SignedInvocation[] calldata signedInvocations) public {
+    console.log("Invoke called with %s invocations", signedInvocations.length);
     address authorized = address(0);
     bytes32 authHash;
 
@@ -97,6 +98,11 @@ abstract contract Delegatable is ECRecovery {
         Invocation memory invocation = signedInvocation.invocation[x];
         SignedDelegation memory signedDelegation = invocation.authority[i];
         Delegation memory delegation = signedDelegation.delegation;
+        console.log("Invoking with delegate %s", delegation.delegate);
+        console.log("Invoking with %s caveats", delegation.caveats.length);
+        console.log("And authority:");
+        console.logBytes32(delegation.authority);
+        //console.log("Recovering delegation with %s delegate, %s authority, %s caveats", delegation.delegate, delegation.authority, delegation.caveats.length);
         address signer = verifyDelegationSignature(signedDelegation);
 
         // If this is the root delegation, set the msgSender to them.
@@ -116,7 +122,7 @@ abstract contract Delegatable is ECRecovery {
         require(!isRevoked[delegationHash], "Delegation revoked");
 
         // Run the proposed transaction by any attached caveats.
-        for (uint16 x = 0; x < delegation.caveats.length; x++) {
+        for (uint16 y = 0; y < delegation.caveats.length; y++) {
           // Pass each to the target contract's caveat enforcer.
           // function enforceCaveat (Caveat caveat, Transaction tx) returns (bool);
         }
@@ -158,20 +164,31 @@ abstract contract Delegatable is ECRecovery {
       delegation.authority,
       delegation.caveats
     );
+    console.log("Delegation signature hash:");
+    console.logBytes32(sigHash);
+    console.log("Delegation signature:");
+    console.logBytes(signedDelegation.signature);
 
     address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
 
+    console.log("Recovered signer %s when needed %s", recoveredSignatureSigner, signedDelegation.delegation.delegate);
     require(signedDelegation.delegation.delegate == recoveredSignatureSigner, 'Invalid signature');
     return recoveredSignatureSigner;
   }
 
   function getDelegationTypedDataHash(address delegate, bytes32 authority, Caveat[] memory caveats) public view returns (bytes32) {
     bytes32 packetHash = getDelegationPacketHash(delegate, authority, caveats);
+    console.log("Domain Hash");
+    console.logBytes32(domainHash);
+    console.log("Delegation packet hash:");
+    console.logBytes32(packetHash);
     bytes32 digest = keccak256(abi.encodePacked(
       "\x19\x01",
       domainHash,
       packetHash
     ));
+    console.log("Produces the typed data hash digest");
+    console.logBytes32(digest);
     return digest;
   }
 
@@ -188,20 +205,24 @@ abstract contract Delegatable is ECRecovery {
     ));
   }
 
-  bytes32 constant EIP712DOMAIN_TYPEHASH = keccak256(
-    // Inspiration for nested struct types from Airswap:
-    // https://github.com/airswap/airswap-protocols/blob/4d0e4d977bf9788756ec1ee0f85ff7e692cd44e8/source/types/contracts/Types.sol
-    abi.encodePacked(
+  function getEIP712TypeHash() public view returns (bytes32) {
+    // This is just a string concatenation, don't read too much into it.
+    bytes memory typeHash = abi.encodePacked(
       "EIP712Domain(",
         "string name,",
         "string version,",
         "uint256 chainId,",
         "address verifyingContract",
       ")"
-    )
-  );
+    );
+    console.log("EIP712 DOMAIN TypeHash");
+    console.logBytes(typeHash);
+    return keccak256(typeHash);
+  }
 
   bytes32 constant DELEGATION_TYPEHASH = keccak256(
+    // Inspiration for nested struct types from Airswap:
+    // https://github.com/airswap/airswap-protocols/blob/4d0e4d977bf9788756ec1ee0f85ff7e692cd44e8/source/types/contracts/Types.sol
     abi.encodePacked(
       "Delegation(",
         "address delegate,",
@@ -221,14 +242,17 @@ abstract contract Delegatable is ECRecovery {
     "SignedDelegation(Delegation delegation, bytes signature)"
   );
 
-  function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public pure returns (bytes32) {
-    return keccak256(abi.encode(
-      EIP712DOMAIN_TYPEHASH,
+  function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public view returns (bytes32) {
+    console.log("The getEIP712TypeHash() is:");
+    console.logBytes32(getEIP712TypeHash());
+    bytes memory encoded = abi.encode(
+      getEIP712TypeHash(),
       keccak256(bytes(contractName)),
       keccak256(bytes(version)),
       chainId,
       verifyingContract
-    ));
+    );
+    return keccak256(encoded);
   }
 
 }

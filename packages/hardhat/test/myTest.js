@@ -16,6 +16,7 @@ const ownerHexPrivateKey = 'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae78
 const delegateHexPrivKey = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
 describe(CONTRACT_NAME, function () {
+  /** 
   it('setPurpose by owner changes purpose', async () => {
     const targetString = 'A totally new purpose!'
     const yourContract = await deployContract();
@@ -33,11 +34,18 @@ describe(CONTRACT_NAME, function () {
       expect(err.message).to.include('Ownable: caller is not the owner');
     }
   });
+  **/
 
   it('can sign a delegation to a second account', async () => {
     const [owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`Owner: ${owner.address}`);
+    console.log(`Addr1: ${addr1.address}`);
+    console.log(`Addr2: ${addr2.address}`);
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+
+    const domainHash = await yourContract.domainHash();
+    console.log('contract domainHash:', domainHash); // CORRECT.
 
     // Prepare the delegation message:
     // This message has no caveats, and authority 0,
@@ -63,7 +71,7 @@ describe(CONTRACT_NAME, function () {
       signature,
       delegation,
     }
-
+    console.log(`delegation signature is ${signature}`);
     // Delegate signs the invocation message:
     console.log(`Signing invocation with delegate keyring`);
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
@@ -76,7 +84,7 @@ describe(CONTRACT_NAME, function () {
       },
       transaction: {
         to: yourContract.address,
-        from: addr1.address,
+        from: owner.address,
         data: desiredTx.data,
       },
     };
@@ -94,7 +102,6 @@ describe(CONTRACT_NAME, function () {
     // A third party can submit the invocation method to the chain:
     console.log(`Submitting invocation with third party keyring`);
     try {
-      console.log(`addr2 is`, addr2)
       console.log(JSON.stringify(signedInvocation, null, 2));
       await yourContract.connect(addr2).invoke([signedInvocation]);
     } catch (err) {

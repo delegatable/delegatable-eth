@@ -1,5 +1,12 @@
 module.exports = {
 
+  EIP712Domain: {
+    name: 'string',
+    version: 'string',
+    chainId: 'uint256',
+    verifyingContract: 'address',
+  },
+
   Invocation: {
     transaction: 'Transaction',
     replayProtection: 'ReplayProtection',
