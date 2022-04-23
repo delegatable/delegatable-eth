@@ -92,51 +92,49 @@ abstract contract Delegatable is ECRecovery {
   function invoke (SignedInvocation[] calldata signedInvocations) public {
     console.log("Invoke called with %s invocations", signedInvocations.length);
     address authorized = address(0);
-    bytes32 authHash;
 
     for (uint i = 0; i < signedInvocations.length; i++) {
       SignedInvocation calldata signedInvocation = signedInvocations[i];
       address signer = verifyInvocationSignature(signedInvocation);
-      // TODO: Verify the invocation signature.
 
       for (uint x = 0; x < signedInvocation.invocations.batch.length; x++) {
         Invocation memory invocation = signedInvocation.invocations.batch[x];
-        SignedDelegation memory signedDelegation = invocation.authority[i];
-        Delegation memory delegation = signedDelegation.delegation;
-        console.log("Invoking with delegate %s", delegation.delegate);
-        console.log("Invoking with %s caveats", delegation.caveats.length);
-        console.log("And authority:");
-        console.logBytes32(delegation.authority);
-        //console.log("Recovering delegation with %s delegate, %s authority, %s caveats", delegation.delegate, delegation.authority, delegation.caveats.length);
-        address signer = verifyDelegationSignature(signedDelegation);
+        address intendedSender = invocation.transaction.from;
+        address canGrant = intendedSender;
+        bytes32 authHash = 0x0;
 
-        // If this is the root delegation, set the msgSender to them.
-        // Else, ensure the signer of this delegation is `authorized`.
-        // TODO: Verify that caveat re-entrancy does not retain these local assignments.
-        if (i == 0) {
-          _setMsgSender(signer);
-        } else {
-          require(authorized == signer, "Delegation not signed by valid delegate");
-          require(delegation.authority == authHash, "Delegation lacks valid authority");
-          authorized = delegation.delegate;
+        for (uint d = 0; d < invocation.authority.length; d++) {
+          SignedDelegation memory signedDelegation = invocation.authority[d];
+          Delegation calldata delegation = signedDelegation.delegation;
+          address signer = verifyDelegationSignature(signedDelegation);
+          require(signer == canGrant, "Delegation signer does not match required signer");
+          require(delegation.authority == authHash, "Delegation authority does not match previous delegation");
+
+          // Get the hash of this delegation, ensure that it has not been revoked.
+          // Revokability is basically a "free" caveat I'm including. I know, it's more expensive. But it's safer.
+          // TODO: Make sure this hash is sound, I did this quickly for MVP.
+          // Also, maybe delegations should have replay protection,
+          // otherwise once it's revoked, you can't give the same permission again.
+          bytes32 delegationHash = keccak256(abi.encode(signedDelegation));
+          require(!isRevoked[delegationHash], "Delegation revoked");
+
+          // TODO: Walk the Caveat array here.
+          // Until this is added, the caveat array does nothing.
+          for (uint16 y = 0; y < delegation.caveats.length; y++) {
+            // Pass each to the target contract's caveat enforcer.
+            // function enforceCaveat (bytes terms, Transaction tx) returns (bool);
+          }
+
+          // Store the hash of this delegation in `authHash`
+          // That way the next delegation can be verified against it.
+          authHash = delegationHash;
+          canGrant = delegation.delegate;
         }
 
-        // Get the hash of this delegation, ensure that it has not been revoked.
-        // Revokability is basically a "free" caveat I'm including. I know, it's more expensive. But it's safer.
-        bytes32 delegationHash; // TODO: Get this hash.
-        require(!isRevoked[delegationHash], "Delegation revoked");
-
-        // Run the proposed transaction by any attached caveats.
-        for (uint16 y = 0; y < delegation.caveats.length; y++) {
-          // Pass each to the target contract's caveat enforcer.
-          // function enforceCaveat (Caveat caveat, Transaction tx) returns (bool);
-        }
-
-        // Store the hash of this delegation in `authHash`.
-        authHash = delegationHash;
+        // And set the MsgSender to the original delegator.
+        _setMsgSender(signer);
+        // Here we perform the requested invocation.
       }
-
-      // Here we perform the custom instruction
     }
   }
 
@@ -180,7 +178,8 @@ abstract contract Delegatable is ECRecovery {
   function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public view returns (address) {
     address signer = address(0);
     bytes32 sigHash = getInvocationTypedDataHash(signedInvocation.invocations);
-    return signer;
+    address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
+    return recoveredSignatureSigner;
   }
 
   function getInvocationTypedDataHash (Invocations calldata invocations) public view returns (bytes32) {
