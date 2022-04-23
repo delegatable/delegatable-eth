@@ -200,13 +200,77 @@ abstract contract Delegatable is ECRecovery {
   }
 
   function getInvocationsPacketHash(Invocations memory invocations) public view returns (bytes32) {
+    console.log("Invocations type hash:");
+    console.logBytes32(INVOCATIONS_TYPEHASH);
+
+    bytes memory encodedInvocations;
+    for (uint i = 0; i < invocations.batch.length; i++) {
+      Invocation memory invocation = invocations.batch[i];
+      console.log("Invocation %s", i);
+      console.log("Invocation type hash:");
+      console.logBytes32(INVOCATION_TYPEHASH);
+      console.log("Invocation packet hash:");
+      console.logBytes32(getInvocationPacketHash(invocation));
+      encodedInvocations = bytes.concat(
+        encodedInvocations,
+        getInvocationPacketHash(invocation)
+      );
+    }
+
     bytes memory encoded = abi.encode(
       INVOCATIONS_TYPEHASH,
-      invocations
+      keccak256(encodedInvocations)
     );
     console.log("Encoded:");
     console.logBytes(encoded);
-    return keccak256(encoded);
+    bytes32 hashed = keccak256(encoded);
+    console.log("Hashed:");
+    console.logBytes32(hashed);
+    return hashed;
+  }
+
+  function getInvocationPacketHash (Invocation memory invocation) public view returns (bytes32) {
+    bytes32 digest = keccak256(abi.encodePacked(
+      INVOCATION_TYPEHASH,
+
+      // Transaction
+      keccak256(abi.encode(
+        TRANSACTION_TYPEHASH,
+        invocation.transaction.to,
+        invocation.transaction.from,
+        invocation.transaction.data
+      )),
+
+      // Replay Protection
+      keccak256(abi.encode(
+        REPLAY_PROTECTION_TYPEHASH,
+        invocation.replayProtection.nonce,
+        invocation.replayProtection.queue
+      )),
+
+      // Authority is itself a SignedDelegation[]
+      keccak256(encodeAuthority(invocation.authority))
+    ));
+
+    console.log("Invocation packet hash:");
+    console.logBytes32(digest);
+    return digest;
+  }
+
+  function encodeAuthority (SignedDelegation[] memory authority) public view returns (bytes memory) {
+    bytes memory encoded;
+    for (uint i = 0; i < authority.length; i++) {
+      SignedDelegation memory signedDelegation = authority[i];
+      encoded = bytes.concat(
+        encoded,
+        abi.encode(
+          SIGNED_DELEGATION_TYPEHASH,
+          signedDelegation.delegation,
+          signedDelegation.signature
+        )
+      );
+    }
+    return encoded;
   }
 
   function getDelegationTypedDataHash(address delegate, bytes32 authority, Caveat[] memory caveats) public returns (bytes32) {
@@ -228,7 +292,7 @@ abstract contract Delegatable is ECRecovery {
   function getDelegationPacketHash(
     address delegate,
     bytes32 authority,
-    Caveat[] memory caveat
+    Caveat[] memory caveats
   ) public returns (bytes32) {
     console.log("Delegation typehash:");
     console.logBytes32(DELEGATION_TYPEHASH);
@@ -236,7 +300,7 @@ abstract contract Delegatable is ECRecovery {
       DELEGATION_TYPEHASH,
       delegate,
       authority,
-      caveat
+      caveats
     );
     console.log("Encoded:");
     console.logBytes(encoded);
@@ -269,7 +333,24 @@ abstract contract Delegatable is ECRecovery {
     )
   );
 
+  bytes32 constant TRANSACTION_TYPEHASH = keccak256(
+    abi.encodePacked("Transaction(",
+      "address to,",
+      "address from,",
+      "bytes data",
+    ")")
+  );
+
+  bytes32 constant REPLAY_PROTECTION_TYPEHASH = keccak256(
+    abi.encodePacked("ReplayProtection(",
+      "uint256 nonce,",
+      "bytes queue",
+    ")")
+  );
+
   bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,bytes data)");
+
+  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,bytes data)");
 
   bytes32 constant CAVEAT_TYPEHASH = keccak256(
     "Caveat(address enforcer, bytes terms)"
