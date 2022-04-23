@@ -1,6 +1,6 @@
 # Counterfactual Delegator
 
-A solidity subclass for enabling any evm smart contract to support counterfactual chains of delegation with arbitrary caveats.
+A solidity subclass for enabling any evm smart contract to support counterfactual chains of delegation with arbitrary caveats, and MetaTransactions.
 
 You can read more about what that means, [you can read this](https://roamresearch.com/#/app/capabul/page/cnW_23H8w).
 
