@@ -161,10 +161,10 @@ abstract contract Delegatable is ECRecovery {
   function execute(
       address to,
       bytes memory data,
-      uint256 txGas
+      uint256 gasLimit
   ) internal returns (bool success) {
     assembly {
-      success := call(txGas, to, 0, add(data, 0x20), mload(data), 0, 0)
+      success := call(gasLimit, to, 0, add(data, 0x20), mload(data), 0, 0)
     }
   }
 
@@ -251,7 +251,29 @@ abstract contract Delegatable is ECRecovery {
   }
 
   function getInvocationPacketHash (Invocation memory invocation) public view returns (bytes32) {
-    bytes32 digest = keccak256(abi.encodePacked(
+    console.log("Contract own address: %s", address(this));
+    console.log("Invocation typehash");
+    console.logBytes32(INVOCATION_TYPEHASH);
+    console.log("Encoded transaction:");
+    console.logBytes(abi.encode(
+      TRANSACTION_TYPEHASH,
+      invocation.transaction.to,
+      invocation.transaction.from,
+      invocation.transaction.gasLimit,
+      keccak256(invocation.transaction.data)
+    ));
+
+    console.log("Encoded replay protection:");
+    console.logBytes(abi.encode(
+      REPLAY_PROTECTION_TYPEHASH,
+      invocation.replayProtection.nonce,
+      invocation.replayProtection.queue
+    ));
+
+    console.log("Encoded authority:");
+    console.logBytes32(keccak256(encodeAuthority(invocation.authority)));
+
+    bytes memory encodedInvocation = abi.encodePacked(
       INVOCATION_TYPEHASH,
 
       // Transaction
@@ -260,7 +282,7 @@ abstract contract Delegatable is ECRecovery {
         invocation.transaction.to,
         invocation.transaction.from,
         invocation.transaction.gasLimit,
-        invocation.transaction.data
+        keccak256(invocation.transaction.data)
       )),
 
       // Replay Protection
@@ -271,8 +293,11 @@ abstract contract Delegatable is ECRecovery {
       )),
 
       // Authority is itself a SignedDelegation[]
-      encodeAuthority(invocation.authority)
-    ));
+      keccak256(encodeAuthority(invocation.authority))
+    );
+    console.log("Encoded invocation:");
+    console.logBytes(encodedInvocation);
+    bytes32 digest = keccak256(encodedInvocation);
 
     console.log("Invocation packet hash:");
     console.logBytes32(digest);
@@ -288,7 +313,7 @@ abstract contract Delegatable is ECRecovery {
         abi.encode(
           SIGNED_DELEGATION_TYPEHASH,
           signedDelegation.delegation,
-          signedDelegation.signature
+          keccak256(signedDelegation.signature)
         )
       );
     }
@@ -390,9 +415,9 @@ abstract contract Delegatable is ECRecovery {
     ")")
   );
 
-  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 txGas,bytes data)");
+  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 gasLimit,bytes data)");
 
-  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 txGas,bytes data)");
+  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 gasLimit,bytes data)");
 
   bytes32 constant CAVEAT_TYPEHASH = keccak256(
     "Caveat(address enforcer, bytes terms)"

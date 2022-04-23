@@ -93,6 +93,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
+    console.log("Trying to invoke tx with data:", invocationMessage.batch[0].transaction.data);
     const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
     const invocationSig = signTypedData({
       privateKey: delegatePrivateKey,
