@@ -30,6 +30,7 @@ struct SignedInvocation {
 struct Transaction {
   address to;
   address from;
+  uint256 gasLimit;
   bytes data;
 }
 
@@ -77,6 +78,10 @@ struct Caveat {
 
 error InvalidSignature (uint invocationIndex);
 
+abstract contract CaveatEnforcer {
+  function enforceCaveat (bytes calldata terms, Transaction calldata tx) virtual public returns (bool);
+}
+
 abstract contract Delegatable is ECRecovery {
 
   // This value MUST be set in the constructor of the form:
@@ -89,13 +94,14 @@ abstract contract Delegatable is ECRecovery {
 
   // Allows other contracts to call methods on this contract
   // Provided they have a valid SignedDelegation.
-  function invoke (SignedInvocation[] calldata signedInvocations) public {
+  function invoke (SignedInvocation[] calldata signedInvocations) public returns (bool success) {
     console.log("Invoke called with %s invocations", signedInvocations.length);
     address authorized = address(0);
 
     for (uint i = 0; i < signedInvocations.length; i++) {
       SignedInvocation calldata signedInvocation = signedInvocations[i];
       address signer = verifyInvocationSignature(signedInvocation);
+      console.log("Extracted invocation signer as %s", signer);
 
       for (uint x = 0; x < signedInvocation.invocations.batch.length; x++) {
         Invocation memory invocation = signedInvocation.invocations.batch[x];
@@ -105,7 +111,7 @@ abstract contract Delegatable is ECRecovery {
 
         for (uint d = 0; d < invocation.authority.length; d++) {
           SignedDelegation memory signedDelegation = invocation.authority[d];
-          Delegation calldata delegation = signedDelegation.delegation;
+          Delegation memory delegation = signedDelegation.delegation;
           address signer = verifyDelegationSignature(signedDelegation);
           require(signer == canGrant, "Delegation signer does not match required signer");
           require(delegation.authority == authHash, "Delegation authority does not match previous delegation");
@@ -129,12 +135,35 @@ abstract contract Delegatable is ECRecovery {
           // That way the next delegation can be verified against it.
           authHash = delegationHash;
           canGrant = delegation.delegate;
+          console.log("Delegation chain has extended to %s", canGrant);
         }
 
         // And set the MsgSender to the original delegator.
+        console.log("Because of all that work, we are setting msg sender to %s", signer);
         _setMsgSender(signer);
         // Here we perform the requested invocation.
+        Transaction memory transaction = invocation.transaction;
+        //console.log("Trying out this transaction from %s to %s", transaction.from, tx.to);
+        //console.logBytes(tx.data);
+
+        require(transaction.to == address(this), "Invocation target does not match");
+        success = execute(
+          transaction.to,
+          transaction.data,
+          transaction.gasLimit
+        );
+        return success;
       }
+    }
+  }
+
+  function execute(
+      address to,
+      bytes memory data,
+      uint256 txGas
+  ) internal returns (bool success) {
+    assembly {
+      success := call(txGas, to, 0, add(data, 0x20), mload(data), 0, 0)
     }
   }
 
@@ -169,16 +198,14 @@ abstract contract Delegatable is ECRecovery {
     console.logBytes(signedDelegation.signature);
 
     address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
-
-    console.log("Recovered signer %s when needed %s", recoveredSignatureSigner, signedDelegation.delegation.delegate);
-    require(signedDelegation.delegation.delegate == recoveredSignatureSigner, 'Invalid signature');
     return recoveredSignatureSigner;
   }
 
   function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public view returns (address) {
-    address signer = address(0);
     bytes32 sigHash = getInvocationTypedDataHash(signedInvocation.invocations);
-    address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
+    console.log("Invocation signature hash:");
+    console.logBytes32(sigHash);
+    address recoveredSignatureSigner = recover(sigHash, signedInvocation.signature);
     return recoveredSignatureSigner;
   }
 
@@ -186,7 +213,10 @@ abstract contract Delegatable is ECRecovery {
     bytes32 digest = keccak256(abi.encodePacked(
       "\x19\x01",
       domainHash,
-      getInvocationsPacketHash(invocations)
+      keccak256(abi.encode(
+        INVOCATIONS_TYPEHASH,
+        getInvocationsPacketHash(invocations)
+      ))
     ));
     console.log("Produces the typed data hash digest");
     console.logBytes32(digest);
@@ -211,13 +241,9 @@ abstract contract Delegatable is ECRecovery {
       );
     }
 
-    bytes memory encoded = abi.encode(
-      INVOCATIONS_TYPEHASH,
-      keccak256(encodedInvocations)
-    );
     console.log("Encoded:");
-    console.logBytes(encoded);
-    bytes32 hashed = keccak256(encoded);
+    console.logBytes(encodedInvocations);
+    bytes32 hashed = keccak256(encodedInvocations);
     console.log("Hashed:");
     console.logBytes32(hashed);
     return hashed;
@@ -232,6 +258,7 @@ abstract contract Delegatable is ECRecovery {
         TRANSACTION_TYPEHASH,
         invocation.transaction.to,
         invocation.transaction.from,
+        invocation.transaction.gasLimit,
         invocation.transaction.data
       )),
 
@@ -350,6 +377,7 @@ abstract contract Delegatable is ECRecovery {
     abi.encodePacked("Transaction(",
       "address to,",
       "address from,",
+      "uint256 gasLimit,"
       "bytes data",
     ")")
   );
@@ -361,9 +389,9 @@ abstract contract Delegatable is ECRecovery {
     ")")
   );
 
-  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,bytes data)");
+  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 txGas,bytes data)");
 
-  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,bytes data)");
+  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 txGas,bytes data)");
 
   bytes32 constant CAVEAT_TYPEHASH = keccak256(
     "Caveat(address enforcer, bytes terms)"

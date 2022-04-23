@@ -17,10 +17,16 @@ contract YourContract is Ownable, Delegatable {
 
   // Note that this contract solely permits the owner to set purpose.
   // The tests will demonstrate a variety of ways the owner can delegate this power.
-  function setPurpose(string memory newPurpose) public onlyOwner {
-      purpose = newPurpose;
-      console.log(msg.sender,"set purpose to",purpose);
-      //emit SetPurpose(msg.sender, purpose);
+  function setPurpose(string memory newPurpose) public {
+    console.log("Setting purpose");
+    console.log(newPurpose);
+    address sender = _msgSender();
+    console.log("Sender: %s", sender);
+    console.log("Owner: %s", owner());
+    require(sender == owner(), "Not owner approved");
+    purpose = newPurpose;
+    console.log(msg.sender,"set purpose to",purpose);
+    //emit SetPurpose(msg.sender, purpose);
   }
 
   function _msgSender () internal view override(Delegatable, Context) returns (address) {

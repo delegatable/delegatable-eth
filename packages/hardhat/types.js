@@ -25,6 +25,7 @@ module.exports = {
   Transaction: {
     to: 'address',
     from: 'address',
+    gasLimit: 'uint256',
     data: 'bytes',
   },
 

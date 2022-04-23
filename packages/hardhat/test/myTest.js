@@ -88,6 +88,7 @@ describe(CONTRACT_NAME, function () {
         transaction: {
           to: yourContract.address,
           from: owner.address,
+          gasLimit: '10000000000000000',
           data: desiredTx.data,
         },
       }],
