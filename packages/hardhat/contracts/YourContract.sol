@@ -12,8 +12,7 @@ contract YourContract is Ownable, Delegatable {
 
   string public purpose = "Building Unstoppable Apps!!!";
 
-  constructor(string memory name) Delegatable(name, "1") {
-  }
+  constructor(string memory name) Delegatable(name, "1") {}
 
   // Note that this contract solely permits the owner to set purpose.
   // The tests will demonstrate a variety of ways the owner can delegate this power.

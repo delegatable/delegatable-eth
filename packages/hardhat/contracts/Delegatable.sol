@@ -100,8 +100,8 @@ abstract contract Delegatable is ECRecovery {
 
     for (uint i = 0; i < signedInvocations.length; i++) {
       SignedInvocation calldata signedInvocation = signedInvocations[i];
-      address signer = verifyInvocationSignature(signedInvocation);
-      console.log("Extracted invocation signer as %s", signer);
+      address invocationSigner = verifyInvocationSignature(signedInvocation);
+      console.log("Extracted invocation signer as %s", invocationSigner);
 
       for (uint x = 0; x < signedInvocation.invocations.batch.length; x++) {
         Invocation memory invocation = signedInvocation.invocations.batch[x];
@@ -111,16 +111,17 @@ abstract contract Delegatable is ECRecovery {
 
         for (uint d = 0; d < invocation.authority.length; d++) {
           SignedDelegation memory signedDelegation = invocation.authority[d];
+          address delegationSigner = verifyDelegationSignature(signedDelegation);
+          require(delegationSigner == canGrant, "Delegation signer does not match required signer");
+
           Delegation memory delegation = signedDelegation.delegation;
-          address signer = verifyDelegationSignature(signedDelegation);
-          require(signer == canGrant, "Delegation signer does not match required signer");
           require(delegation.authority == authHash, "Delegation authority does not match previous delegation");
 
           // Get the hash of this delegation, ensure that it has not been revoked.
           // Revokability is basically a "free" caveat I'm including. I know, it's more expensive. But it's safer.
-          // TODO: Make sure this hash is sound, I did this quickly for MVP.
-          // Also, maybe delegations should have replay protection,
-          // otherwise once it's revoked, you can't give the same permission again.
+          // TODO: Make sure this hash is sound, probably just use the 712 encoding. I did this quickly for MVP.
+          // Also, maybe delegations should have replay protection, at least a nonce (non order dependent),
+          // otherwise once it's revoked, you can't give the exact same permission again.
           bytes32 delegationHash = keccak256(abi.encode(signedDelegation));
           require(!isRevoked[delegationHash], "Delegation revoked");
 
@@ -139,9 +140,9 @@ abstract contract Delegatable is ECRecovery {
         }
 
         // And set the MsgSender to the original delegator.
-        console.log("Because of all that work, we are setting msg sender to %s", signer);
-        require(signer == canGrant, "Signer was not delegated to.");
-        _setMsgSender(signer);
+        console.log("Because of all that work, we are setting msg sender to %s", invocationSigner);
+        require(invocationSigner == canGrant, "Signer was not delegated to.");
+        _setMsgSender(invocationSigner);
         // Here we perform the requested invocation.
         Transaction memory transaction = invocation.transaction;
         //console.log("Trying out this transaction from %s to %s", transaction.from, tx.to);
@@ -199,6 +200,7 @@ abstract contract Delegatable is ECRecovery {
     console.logBytes(signedDelegation.signature);
 
     address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
+    console.log("Recovered delegation signer: %s", recoveredSignatureSigner);
     return recoveredSignatureSigner;
   }
 
@@ -211,6 +213,8 @@ abstract contract Delegatable is ECRecovery {
   }
 
   function getInvocationTypedDataHash (Invocations calldata invocations) public returns (bytes32) {
+    console.log("Invocations typehash:");
+    console.logBytes32(INVOCATIONS_TYPEHASH);
     bytes32 digest = keccak256(abi.encodePacked(
       "\x19\x01",
       domainHash,
