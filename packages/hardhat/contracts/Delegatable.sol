@@ -164,11 +164,7 @@ abstract contract Delegatable is ECRecovery {
 
   function verifyDelegationSignature (SignedDelegation memory signedDelegation) public returns (address) {
     Delegation memory delegation = signedDelegation.delegation;
-    bytes32 sigHash = getDelegationTypedDataHash(
-      delegation.delegate,
-      delegation.authority,
-      delegation.caveats
-    );
+    bytes32 sigHash = getDelegationTypedDataHash(delegation);
     console.log("Delegation signature hash:");
     console.logBytes32(sigHash);
     console.log("Delegation signature:");
@@ -188,11 +184,10 @@ abstract contract Delegatable is ECRecovery {
   }
 
   function getInvocationTypedDataHash (Invocations calldata invocations) public view returns (bytes32) {
-    bytes32 packetHash = getInvocationsPacketHash(invocations);
     bytes32 digest = keccak256(abi.encodePacked(
       "\x19\x01",
       domainHash,
-      packetHash
+      getInvocationsPacketHash(invocations)
     ));
     console.log("Produces the typed data hash digest");
     console.logBytes32(digest);
@@ -249,7 +244,7 @@ abstract contract Delegatable is ECRecovery {
       )),
 
       // Authority is itself a SignedDelegation[]
-      keccak256(encodeAuthority(invocation.authority))
+      encodeAuthority(invocation.authority)
     ));
 
     console.log("Invocation packet hash:");
@@ -273,8 +268,8 @@ abstract contract Delegatable is ECRecovery {
     return encoded;
   }
 
-  function getDelegationTypedDataHash(address delegate, bytes32 authority, Caveat[] memory caveats) public returns (bytes32) {
-    bytes32 packetHash = getDelegationPacketHash(delegate, authority, caveats);
+  function getDelegationTypedDataHash(Delegation memory delegation) public returns (bytes32) {
+    bytes32 packetHash = getDelegationPacketHash(delegation);
     console.log("Domain Hash");
     console.logBytes32(domainHash);
     console.log("Delegation packet hash:");
@@ -289,20 +284,39 @@ abstract contract Delegatable is ECRecovery {
     return digest;
   }
 
-  function getDelegationPacketHash(
-    address delegate,
-    bytes32 authority,
-    Caveat[] memory caveats
-  ) public returns (bytes32) {
+  function getDelegationPacketHash(Delegation memory delegation) public returns (bytes32) {
     console.log("Delegation typehash:");
     console.logBytes32(DELEGATION_TYPEHASH);
+    console.log("Delegate encoded:%s", delegation.delegate);
+    console.log("Delegated authority:");
+    console.logBytes32(delegation.authority);
+
     bytes memory encoded = abi.encode(
       DELEGATION_TYPEHASH,
-      delegate,
-      authority,
-      caveats
+      delegation.delegate,
+      delegation.authority,
+      encodeCaveats(delegation.caveats)
     );
     console.log("Encoded:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }
+
+  function encodeCaveats (Caveat[] memory caveats) public view returns (bytes32) {
+    bytes memory encoded;
+    for (uint i = 0; i < caveats.length; i++) {
+      Caveat memory caveat = caveats[i];
+      encoded = bytes.concat(
+        encoded,
+        abi.encode(
+          CAVEAT_TYPEHASH,
+          caveat.enforcer,
+          caveat.terms
+        )
+      );
+    }
+
+    console.log("Encoded caveats:");
     console.logBytes(encoded);
     return keccak256(encoded);
   }
