@@ -202,7 +202,7 @@ abstract contract Delegatable is ECRecovery {
     return recoveredSignatureSigner;
   }
 
-  function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public view returns (address) {
+  function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public returns (address) {
     bytes32 sigHash = getInvocationTypedDataHash(signedInvocation.invocations);
     console.log("Invocation signature hash:");
     console.logBytes32(sigHash);
@@ -210,7 +210,7 @@ abstract contract Delegatable is ECRecovery {
     return recoveredSignatureSigner;
   }
 
-  function getInvocationTypedDataHash (Invocations calldata invocations) public view returns (bytes32) {
+  function getInvocationTypedDataHash (Invocations calldata invocations) public returns (bytes32) {
     bytes32 digest = keccak256(abi.encodePacked(
       "\x19\x01",
       domainHash,
@@ -224,7 +224,7 @@ abstract contract Delegatable is ECRecovery {
     return digest;
   }
 
-  function getInvocationsPacketHash(Invocations memory invocations) public view returns (bytes32) {
+  function getInvocationsPacketHash(Invocations memory invocations) public returns (bytes32) {
     console.log("Invocations type hash:");
     console.logBytes32(INVOCATIONS_TYPEHASH);
 
@@ -250,7 +250,7 @@ abstract contract Delegatable is ECRecovery {
     return hashed;
   }
 
-  function getInvocationPacketHash (Invocation memory invocation) public view returns (bytes32) {
+  function getInvocationPacketHash (Invocation memory invocation) public returns (bytes32) {
     console.log("Contract own address: %s", address(this));
     console.log("Invocation typehash");
     console.logBytes32(INVOCATION_TYPEHASH);
@@ -271,7 +271,7 @@ abstract contract Delegatable is ECRecovery {
     ));
 
     console.log("Encoded authority:");
-    console.logBytes32(keccak256(encodeAuthority(invocation.authority)));
+    console.logBytes32(encodeAuthority(invocation.authority));
 
     bytes memory encodedInvocation = abi.encodePacked(
       INVOCATION_TYPEHASH,
@@ -293,7 +293,7 @@ abstract contract Delegatable is ECRecovery {
       )),
 
       // Authority is itself a SignedDelegation[]
-      keccak256(encodeAuthority(invocation.authority))
+      encodeAuthority(invocation.authority)
     );
     console.log("Encoded invocation:");
     console.logBytes(encodedInvocation);
@@ -304,20 +304,33 @@ abstract contract Delegatable is ECRecovery {
     return digest;
   }
 
-  function encodeAuthority (SignedDelegation[] memory authority) public view returns (bytes memory) {
+  function encodeAuthority (SignedDelegation[] memory authority) public returns (bytes32) {
     bytes memory encoded;
+    console.log("Encoding authority");
     for (uint i = 0; i < authority.length; i++) {
+
+      console.log("SignedDelegation typehash:");
+      console.logBytes32(SIGNED_DELEGATION_TYPEHASH);
+      console.log("SignedDelegation.delegation packet hash:");
+      console.logBytes32(getDelegationPacketHash(authority[i].delegation));
+      console.log("SignedDelegation signature:");
+      console.logBytes(authority[i].signature);
+
       SignedDelegation memory signedDelegation = authority[i];
       encoded = bytes.concat(
         encoded,
         abi.encode(
           SIGNED_DELEGATION_TYPEHASH,
-          signedDelegation.delegation,
-          keccak256(signedDelegation.signature)
+          getDelegationPacketHash(authority[i].delegation),
+          keccak256(authority[i].signature)
         )
       );
     }
-    return encoded;
+
+    console.log("Encoded authority:");  
+    console.logBytes(encoded);
+    bytes32 hash = keccak256(encoded);
+    return hash;
   }
 
   function getDelegationTypedDataHash(Delegation memory delegation) public returns (bytes32) {
@@ -411,7 +424,7 @@ abstract contract Delegatable is ECRecovery {
   bytes32 constant REPLAY_PROTECTION_TYPEHASH = keccak256(
     abi.encodePacked("ReplayProtection(",
       "uint256 nonce,",
-      "bytes queue",
+      "uint256 queue",
     ")")
   );
 
@@ -424,7 +437,7 @@ abstract contract Delegatable is ECRecovery {
   );
 
   bytes32 constant SIGNED_DELEGATION_TYPEHASH = keccak256(
-    "SignedDelegation(Delegation delegation, bytes signature)"
+    "SignedDelegation(Delegation delegation,bytes signature)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)"
   );
 
   function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public view returns (bytes32) {
