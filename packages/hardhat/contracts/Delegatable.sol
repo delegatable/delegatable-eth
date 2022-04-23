@@ -140,6 +140,7 @@ abstract contract Delegatable is ECRecovery {
 
         // And set the MsgSender to the original delegator.
         console.log("Because of all that work, we are setting msg sender to %s", signer);
+        require(signer == canGrant, "Signer was not delegated to.");
         _setMsgSender(signer);
         // Here we perform the requested invocation.
         Transaction memory transaction = invocation.transaction;
