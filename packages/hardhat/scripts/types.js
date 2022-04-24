@@ -31,6 +31,28 @@ const typedMessage = {
         { name: 'delegation', type: 'Delegation' },
         { name: 'signature', type: 'bytes' },
       ],
+      Invocation: [
+        { name: 'transaction', type: 'Transaction' },
+        { name: 'replayProtection', type: 'ReplayProtection' },
+        { name: 'authority', type: 'SignedDelegation[]' },
+      ],
+      Invocations: [
+        { name: 'batch', type: 'Invocation[]' },
+      ],
+      SignedInvocation: [
+        { name: 'invocations', type: 'Invocations' },
+        { name: 'signature', type: 'bytes' },
+      ],
+      Transaction: [
+        { name: 'to', type: 'address' },
+        { name: 'from', type: 'address' },
+        { name: 'gasLimit', type: 'uint256' },
+        { name: 'data', type: 'bytes' },
+      ],
+      ReplayProtection: [
+        { name: 'nonce', type: 'uint256' },
+        { name: 'queue', type: 'uint256' },
+      ],
    }
 };
 
