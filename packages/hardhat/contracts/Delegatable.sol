@@ -84,6 +84,83 @@ abstract contract CaveatEnforcer {
 
 abstract contract Delegatable is ECRecovery {
 
+  // Every EIP-712 signature starts with a typehash of the struct type being signed.
+  // The top level signature also includes a domain typehash that is used to
+  // avoid replay attacks across other contracts.
+  function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public view returns (bytes32) {
+    console.log("The getEIP712TypeHash() is:");
+    console.logBytes32(getEIP712TypeHash());
+    bytes memory encoded = abi.encode(
+      getEIP712TypeHash(),
+      keccak256(bytes(contractName)),
+      keccak256(bytes(version)),
+      chainId,
+      verifyingContract
+    );
+    console.log("The encoded EIP712 domain is:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }
+
+  // The annoying thing about these typehashes is they need to match the structs above.
+  // They also need to match the client-side type definitions being signed.
+  // The tooling for keeping these three pieces of info in sync is not great today.
+  // It gets more annoying with structs in structs, as you'll see below.
+  function getEIP712TypeHash() public view returns (bytes32) {
+    // This is just a string concatenation, don't read too much into it.
+    bytes memory typeHash = abi.encodePacked(
+      "EIP712Domain(",
+        "string name,",
+        "string version,",
+        "uint256 chainId,",
+        "address verifyingContract",
+      ")"
+    );
+    console.log("EIP712 DOMAIN TypeHash");
+    console.logBytes(typeHash);
+    return keccak256(typeHash);
+  }
+
+  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 gasLimit,bytes data)");
+
+  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 gasLimit,bytes data)");
+
+  bytes32 constant TRANSACTION_TYPEHASH = keccak256(
+    abi.encodePacked("Transaction(",
+      "address to,",
+      "address from,",
+      "uint256 gasLimit,"
+      "bytes data",
+    ")")
+  );
+
+  bytes32 constant REPLAY_PROTECTION_TYPEHASH = keccak256(
+    abi.encodePacked("ReplayProtection(",
+      "uint256 nonce,",
+      "uint256 queue",
+    ")")
+  );
+
+  bytes32 constant CAVEAT_TYPEHASH = keccak256(
+    "Caveat(address enforcer, bytes terms)"
+  );
+
+  bytes32 constant SIGNED_DELEGATION_TYPEHASH = keccak256(
+    "SignedDelegation(Delegation delegation,bytes signature)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)"
+  );
+
+  bytes32 constant DELEGATION_TYPEHASH = keccak256(
+    // Inspiration for nested struct types from Airswap:
+    // https://github.com/airswap/airswap-protocols/blob/4d0e4d977bf9788756ec1ee0f85ff7e692cd44e8/source/types/contracts/Types.sol
+    abi.encodePacked("Delegation(",
+      "address delegate,",
+      "bytes32 authority,",
+      "Caveat[] caveats)",
+      "Caveat(address enforcer,bytes terms)"
+    )
+  );
+
+
   // This value MUST be set in the constructor of the form:
   // domainHash = getEIP712DomainHash('MyContractName','1',block.chainid,address(this));
   bytes32 public immutable domainHash;
@@ -191,19 +268,6 @@ abstract contract Delegatable is ECRecovery {
       return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
   }
 
-  function verifyDelegationSignature (SignedDelegation memory signedDelegation) public returns (address) {
-    Delegation memory delegation = signedDelegation.delegation;
-    bytes32 sigHash = getDelegationTypedDataHash(delegation);
-    console.log("Delegation signature hash:");
-    console.logBytes32(sigHash);
-    console.log("Delegation signature:");
-    console.logBytes(signedDelegation.signature);
-
-    address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
-    console.log("Recovered delegation signer: %s", recoveredSignatureSigner);
-    return recoveredSignatureSigner;
-  }
-
   function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public returns (address) {
     bytes32 sigHash = getInvocationTypedDataHash(signedInvocation.invocations);
     console.log("Invocation signature hash:");
@@ -215,13 +279,14 @@ abstract contract Delegatable is ECRecovery {
   function getInvocationTypedDataHash (Invocations calldata invocations) public returns (bytes32) {
     console.log("Invocations typehash:");
     console.logBytes32(INVOCATIONS_TYPEHASH);
+    bytes32 invocationsHash = getInvocationsPacketHash(invocations);
+    console.log("Invocations hash:");
+    console.logBytes32(invocationsHash);
+
     bytes32 digest = keccak256(abi.encodePacked(
       "\x19\x01",
       domainHash,
-      keccak256(abi.encode(
-        INVOCATIONS_TYPEHASH,
-        getInvocationsPacketHash(invocations)
-      ))
+      invocationsHash
     ));
     console.log("Produces the typed data hash digest");
     console.logBytes32(digest);
@@ -232,9 +297,16 @@ abstract contract Delegatable is ECRecovery {
     console.log("Invocations type hash:");
     console.logBytes32(INVOCATIONS_TYPEHASH);
 
+    return keccak256(abi.encode(
+      INVOCATIONS_TYPEHASH,
+      getBatchPacketHash(invocations.batch)
+    ));
+  }
+
+  function getBatchPacketHash (Invocation[] memory batch) public returns (bytes32) {
     bytes memory encodedInvocations;
-    for (uint i = 0; i < invocations.batch.length; i++) {
-      Invocation memory invocation = invocations.batch[i];
+    for (uint i = 0; i < batch.length; i++) {
+      Invocation memory invocation = batch[i];
       console.log("Invocation %s", i);
       console.log("Invocation type hash:");
       console.logBytes32(INVOCATION_TYPEHASH);
@@ -258,47 +330,14 @@ abstract contract Delegatable is ECRecovery {
     console.log("Contract own address: %s", address(this));
     console.log("Invocation typehash");
     console.logBytes32(INVOCATION_TYPEHASH);
-    console.log("Encoded transaction:");
-    console.logBytes(abi.encode(
-      TRANSACTION_TYPEHASH,
-      invocation.transaction.to,
-      invocation.transaction.from,
-      invocation.transaction.gasLimit,
-      keccak256(invocation.transaction.data)
-    ));
-
-    console.log("Encoded replay protection:");
-    console.logBytes(abi.encode(
-      REPLAY_PROTECTION_TYPEHASH,
-      invocation.replayProtection.nonce,
-      invocation.replayProtection.queue
-    ));
-
-    console.log("Encoded authority:");
-    console.logBytes32(encodeAuthority(invocation.authority));
 
     bytes memory encodedInvocation = abi.encodePacked(
       INVOCATION_TYPEHASH,
-
-      // Transaction
-      keccak256(abi.encode(
-        TRANSACTION_TYPEHASH,
-        invocation.transaction.to,
-        invocation.transaction.from,
-        invocation.transaction.gasLimit,
-        keccak256(invocation.transaction.data)
-      )),
-
-      // Replay Protection
-      keccak256(abi.encode(
-        REPLAY_PROTECTION_TYPEHASH,
-        invocation.replayProtection.nonce,
-        invocation.replayProtection.queue
-      )),
-
-      // Authority is itself a SignedDelegation[]
-      encodeAuthority(invocation.authority)
+      getTransactionPacketHash(invocation.transaction),
+      getReplayProtectionPacketHash(invocation.replayProtection),
+      getAuthorityPacketHash(invocation.authority)
     );
+
     console.log("Encoded invocation:");
     console.logBytes(encodedInvocation);
     bytes32 digest = keccak256(encodedInvocation);
@@ -308,7 +347,31 @@ abstract contract Delegatable is ECRecovery {
     return digest;
   }
 
-  function encodeAuthority (SignedDelegation[] memory authority) public returns (bytes32) {
+  function getTransactionPacketHash (Transaction memory transaction) public returns (bytes32) {
+    bytes memory encoded = abi.encode(
+      TRANSACTION_TYPEHASH,
+      transaction.to,
+      transaction.from,
+      transaction.gasLimit,
+      keccak256(transaction.data)
+    );
+    console.log("Encoded transaction:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }
+
+  function getReplayProtectionPacketHash (ReplayProtection memory replayProtection) public returns (bytes32) {
+    bytes memory encoded = abi.encode(
+      REPLAY_PROTECTION_TYPEHASH,
+      replayProtection.nonce,
+      replayProtection.queue
+    );
+    console.log("Encoded replay protection:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }
+
+  function getAuthorityPacketHash (SignedDelegation[] memory authority) public returns (bytes32) {
     bytes memory encoded;
     console.log("Encoding authority");
     for (uint i = 0; i < authority.length; i++) {
@@ -323,11 +386,7 @@ abstract contract Delegatable is ECRecovery {
       SignedDelegation memory signedDelegation = authority[i];
       encoded = bytes.concat(
         encoded,
-        abi.encode(
-          SIGNED_DELEGATION_TYPEHASH,
-          getDelegationPacketHash(authority[i].delegation),
-          keccak256(authority[i].signature)
-        )
+        getSignedDelegationPacketHash(authority[i])
       );
     }
 
@@ -335,6 +394,30 @@ abstract contract Delegatable is ECRecovery {
     console.logBytes(encoded);
     bytes32 hash = keccak256(encoded);
     return hash;
+  }
+
+  function getSignedDelegationPacketHash (SignedDelegation memory signedDelegation) public returns (bytes32) {
+    bytes memory encoded = abi.encode(
+      SIGNED_DELEGATION_TYPEHASH,
+      getDelegationPacketHash(signedDelegation.delegation),
+      keccak256(signedDelegation.signature)
+    );
+    console.log("Encoded signed delegation:");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }
+
+  function verifyDelegationSignature (SignedDelegation memory signedDelegation) public returns (address) {
+    Delegation memory delegation = signedDelegation.delegation;
+    bytes32 sigHash = getDelegationTypedDataHash(delegation);
+    console.log("Delegation signature hash:");
+    console.logBytes32(sigHash);
+    console.log("Delegation signature:");
+    console.logBytes(signedDelegation.signature);
+
+    address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
+    console.log("Recovered delegation signer: %s", recoveredSignatureSigner);
+    return recoveredSignatureSigner;
   }
 
   function getDelegationTypedDataHash(Delegation memory delegation) public returns (bytes32) {
@@ -390,74 +473,7 @@ abstract contract Delegatable is ECRecovery {
     return keccak256(encoded);
   }
 
-  function getEIP712TypeHash() public view returns (bytes32) {
-    // This is just a string concatenation, don't read too much into it.
-    bytes memory typeHash = abi.encodePacked(
-      "EIP712Domain(",
-        "string name,",
-        "string version,",
-        "uint256 chainId,",
-        "address verifyingContract",
-      ")"
-    );
-    console.log("EIP712 DOMAIN TypeHash");
-    console.logBytes(typeHash);
-    return keccak256(typeHash);
-  }
-
-  bytes32 constant DELEGATION_TYPEHASH = keccak256(
-    // Inspiration for nested struct types from Airswap:
-    // https://github.com/airswap/airswap-protocols/blob/4d0e4d977bf9788756ec1ee0f85ff7e692cd44e8/source/types/contracts/Types.sol
-    abi.encodePacked("Delegation(",
-      "address delegate,",
-      "bytes32 authority,",
-      "Caveat[] caveats)",
-      "Caveat(address enforcer,bytes terms)"
-    )
-  );
-
-  bytes32 constant TRANSACTION_TYPEHASH = keccak256(
-    abi.encodePacked("Transaction(",
-      "address to,",
-      "address from,",
-      "uint256 gasLimit,"
-      "bytes data",
-    ")")
-  );
-
-  bytes32 constant REPLAY_PROTECTION_TYPEHASH = keccak256(
-    abi.encodePacked("ReplayProtection(",
-      "uint256 nonce,",
-      "uint256 queue",
-    ")")
-  );
-
-  bytes32 constant INVOCATIONS_TYPEHASH = keccak256("Invocations(Invocation[] batch)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 gasLimit,bytes data)");
-
-  bytes32 constant INVOCATION_TYPEHASH = keccak256("Invocation(Transaction transaction,ReplayProtection replayProtection,SignedDelegation[] authority)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)ReplayProtection(uint256 nonce,uint256 queue)SignedDelegation(Delegation delegation,bytes signature)Transaction(address to,address from,uint256 gasLimit,bytes data)");
-
-  bytes32 constant CAVEAT_TYPEHASH = keccak256(
-    "Caveat(address enforcer, bytes terms)"
-  );
-
-  bytes32 constant SIGNED_DELEGATION_TYPEHASH = keccak256(
-    "SignedDelegation(Delegation delegation,bytes signature)Caveat(address enforcer,bytes terms)Delegation(address delegate,bytes32 authority,Caveat[] caveats)"
-  );
-
-  function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public view returns (bytes32) {
-    console.log("The getEIP712TypeHash() is:");
-    console.logBytes32(getEIP712TypeHash());
-    bytes memory encoded = abi.encode(
-      getEIP712TypeHash(),
-      keccak256(bytes(contractName)),
-      keccak256(bytes(version)),
-      chainId,
-      verifyingContract
-    );
-    console.log("The encoded EIP712 domain is:");
-    console.logBytes(encoded);
-    return keccak256(encoded);
-  }
+ 
 
 }
 
