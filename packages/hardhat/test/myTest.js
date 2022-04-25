@@ -20,7 +20,6 @@ const delegateHexPrivKey = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4
 
 describe(CONTRACT_NAME, function () {
 
-  /** 
   it('setPurpose by owner changes purpose', async () => {
     const targetString = 'A totally new purpose!'
     const yourContract = await deployContract();
@@ -35,10 +34,9 @@ describe(CONTRACT_NAME, function () {
     try {
       await yourContract.connect(addr1).setPurpose(targetString);
     } catch (err) {
-      expect(err.message).to.include('Ownable: caller is not the owner');
+      expect(err.message).to.include('Not owner approved');
     }
   });
-  **/
 
   it('can sign a delegation to a second account', async () => {
     const [owner, addr1, addr2] = await ethers.getSigners();
