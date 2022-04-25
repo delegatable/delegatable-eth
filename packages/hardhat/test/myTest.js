@@ -6,13 +6,12 @@ const sigUtil = require('eth-sig-util');
 const {
   TypedDataUtils,
 } = sigUtil;
-console.log('SigUtil keys: ', Object.keys(sigUtil));
 const {
   typedSignatureHash,
   encodeData,
 } = TypedDataUtils;
-console.log("TypedDataUtils keys: ", Object.keys(TypedDataUtils));
 const { encode } = require("punycode");
+const { TIMEOUT } = require("dns");
 
 const types = signTypedDataify(friendlyTypes);
 const CONTRACT_NAME = 'YourContract';
@@ -107,14 +106,21 @@ describe(CONTRACT_NAME, function () {
     }
 
     // A third party can submit the invocation method to the chain:
-    console.log(`Submitting invocation with third party keyring`);
+    //console.log(`Submitting invocation with third party keyring`);
     try {
-      console.log(JSON.stringify(signedInvocation, null, 2));
-      await yourContract.connect(addr2).invoke([signedInvocation]);
+      //console.log(JSON.stringify(signedInvocation, null, 2));
+      const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+      //console.log('tx res', res);
+      const block = await ethers.provider.getBlock(res.blockHash);
+      //console.log('block', block);
+      const tx = await ethers.provider.getTransactionReceipt(res.hash);
+      //console.log('tx receipt', tx);
     } catch (err) {
       console.log(`Problem`, err);
       console.trace(err);
     }
+
+    // await timeout(100);
 
     // Verify the change was made:
     expect(await yourContract.purpose()).to.equal(targetString);
@@ -215,4 +221,12 @@ function signTypedDataify (friendlyTypes) {
     });
   });
   return types;
+}
+
+async function timeout (ms) {
+  return new Promise ((resolve, reject) => {
+    setTimeout(() => {
+      resolve();
+    }, ms); 
+  });
 }

@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/access/Ownable.sol"; //https://github.com/OpenZe
 contract YourContract is Ownable, Delegatable {
 
   //event SetPurpose(address sender, string purpose);
-
   string public purpose = "Building Unstoppable Apps!!!";
 
   constructor(string memory name) Delegatable(name, "1") {}
@@ -17,14 +16,14 @@ contract YourContract is Ownable, Delegatable {
   // Note that this contract solely permits the owner to set purpose.
   // The tests will demonstrate a variety of ways the owner can delegate this power.
   function setPurpose(string memory newPurpose) public {
-    console.log("Setting purpose");
-    console.log(newPurpose);
     address sender = _msgSender();
+    address _owner = owner();
     console.log("Sender: %s", sender);
-    console.log("Owner: %s", owner());
-    require(sender == owner(), "Not owner approved");
+    console.log("Owner: %s", _owner);
+    require(sender == _owner, "Not owner approved");
+    console.log("Requirement passed");
     purpose = newPurpose;
-    console.log(msg.sender,"set purpose to",purpose);
+    console.log("set purpose to %s", purpose);
     //emit SetPurpose(msg.sender, purpose);
   }
 
