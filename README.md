@@ -1,4 +1,26 @@
-# 🏗 ScaffoldDelegator
+# Delegatable Eth 
+
+An abstract solidity contract that any contract can easily integrate to add a ton of improvements to that contract's user and developer experience for all of its functions:
+- Allow users to sign "invocations" instead of transactions, which bring lots of benefits.
+- Support for MetaTransactions
+- Support for batched operations 
+- Support for signing multiple actions that aren't blocked by each other
+- Support for signing commitments that can be lazily submitted to the blockchain later
+- Allow users to sign offchain messages that delegate authority to perform any action they can perform, along with an open-ended system for adding restrictions to that delegation, including revocation.
+- Allow the holder of any delegation to issue a delegation from it, also with an off-chain signature and no up-front gas.
+- Allows creating invite links to users who don't have accounts set up yet, by signing delegations to a key you send to them.
+
+You can read about [the theory behind this library here](https://roamresearch.com/#/app/capabul/page/cnW_23H8w).
+
+## Integration in a Solidity project
+
+Not that this is far enough along to really use yet, but the intention is that you will:
+
+- inherit your contract from [contracts/Delegatable.sol](./packages/hardhat/contracts/Delegatable.sol).
+- Use the msgSender() "standard" trick: Never call `msg.sender` directly to enforce policy, always call the internal private method `_msgSender()`, so that metaTransactions and other parts of code can assign a custom sender. [Examples here](https://github.com/anydotcrypto/metatransactions).
+- If you are inheriting from multiple contracts that implement `_msgSender`, you may need to implement your own override method as shown in `contracts/YourContract.sol`.
+
+## How it's set up
 
 A fork of Scaffold-ETH boilerplate
 
