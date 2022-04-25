@@ -47,6 +47,8 @@ describe(CONTRACT_NAME, function () {
     console.log(`Addr2: ${addr2.address}`);
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+    const contract = await ethers.provider.getCode(yourContract.address);
+    console.log('contract:', contract);
 
     const domainHash = await yourContract.domainHash();
     console.log('contract domainHash:', domainHash);
@@ -110,11 +112,11 @@ describe(CONTRACT_NAME, function () {
     try {
       //console.log(JSON.stringify(signedInvocation, null, 2));
       const res = await yourContract.connect(addr2).invoke([signedInvocation]);
-      //console.log('tx res', res);
+      console.log('tx res', res);
       const block = await ethers.provider.getBlock(res.blockHash);
-      //console.log('block', block);
-      const tx = await ethers.provider.getTransactionReceipt(res.hash);
-      //console.log('tx receipt', tx);
+      console.log('block', block);
+      const txReceipt = await ethers.provider.getTransactionReceipt(res.hash);
+      console.log('tx receipt', txReceipt);
     } catch (err) {
       console.log(`Problem`, err);
       console.trace(err);
