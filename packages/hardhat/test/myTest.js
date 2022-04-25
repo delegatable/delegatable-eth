@@ -40,17 +40,11 @@ describe(CONTRACT_NAME, function () {
 
   it('can sign a delegation to a second account', async () => {
     const [owner, addr1, addr2] = await ethers.getSigners();
-    console.log(`Owner: ${owner.address}`);
-    console.log(`Addr1: ${addr1.address}`);
-    console.log(`Addr2: ${addr2.address}`);
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
-    console.log('deployed tx', yourContract.deployTransaction);
     const contract = await ethers.provider.getCode(yourContract.address);
-    console.log('contract:', contract);
 
     const domainHash = await yourContract.domainHash();
-    console.log('contract domainHash:', domainHash);
 
     // Prepare the delegation message:
     // This message has no caveats, and authority 0,
@@ -65,7 +59,6 @@ describe(CONTRACT_NAME, function () {
     const typedMessage = createTypedMessage(yourContract, delegation, primaryType);
 
     // Owner signs the delegation:
-    console.log(`Signing delegation with owner keyring`);
     const privateKey = fromHexString(ownerHexPrivateKey);
     const signature = sigUtil.signTypedData_v4(
       privateKey,
@@ -75,9 +68,7 @@ describe(CONTRACT_NAME, function () {
       signature,
       delegation,
     }
-    console.log(`delegation signature is ${signature}`);
     // Delegate signs the invocation message:
-    console.log(`Signing invocation with delegate keyring`);
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
     const delegatePrivateKey = fromHexString(delegateHexPrivKey);
     const invocationMessage = {
@@ -95,7 +86,6 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    console.log("Trying to invoke tx with data:", invocationMessage.batch[0].transaction.data);
     const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
     const invocationSig = sigUtil.signTypedData_v4(
       delegatePrivateKey,
@@ -107,21 +97,7 @@ describe(CONTRACT_NAME, function () {
     }
 
     // A third party can submit the invocation method to the chain:
-    //console.log(`Submitting invocation with third party keyring`);
-    try {
-      //console.log(JSON.stringify(signedInvocation, null, 2));
-      const res = await yourContract.connect(addr2).invoke([signedInvocation]);
-      console.log('tx res', res);
-      const block = await ethers.provider.getBlock(res.blockHash);
-      console.log('block', block);
-      const txReceipt = await ethers.provider.getTransactionReceipt(res.hash);
-      console.log('tx receipt', txReceipt);
-    } catch (err) {
-      console.log(`Problem`, err);
-      console.trace(err);
-    }
-
-    // await timeout(100);
+    const res = await yourContract.connect(addr2).invoke([signedInvocation]);
 
     // Verify the change was made:
     expect(await yourContract.purpose()).to.equal(targetString);
