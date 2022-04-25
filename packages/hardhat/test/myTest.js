@@ -2,13 +2,16 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const friendlyTypes = require('../types');
 const BigNumber = ethers.BigNumber;
+const sigUtil = require('eth-sig-util');
 const {
-  signTypedData,
   TypedDataUtils,
+} = sigUtil;
+console.log('SigUtil keys: ', Object.keys(sigUtil));
+const {
   typedSignatureHash,
-  SignTypedDataVersion,
   encodeData,
-} = require('signtypeddata-v5');
+} = TypedDataUtils;
+console.log("TypedDataUtils keys: ", Object.keys(TypedDataUtils));
 const { encode } = require("punycode");
 
 const types = signTypedDataify(friendlyTypes);
@@ -64,11 +67,10 @@ describe(CONTRACT_NAME, function () {
     // Owner signs the delegation:
     console.log(`Signing delegation with owner keyring`);
     const privateKey = fromHexString(ownerHexPrivateKey);
-    const signature = signTypedData({
+    const signature = sigUtil.signTypedData_v4(
       privateKey,
-      data: typedMessage,
-      version: SignTypedDataVersion.V5,
-    });
+      typedMessage
+    );
     const signedDelegation = {
       signature,
       delegation,
@@ -95,11 +97,10 @@ describe(CONTRACT_NAME, function () {
     };
     console.log("Trying to invoke tx with data:", invocationMessage.batch[0].transaction.data);
     const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
-    const invocationSig = signTypedData({
-      privateKey: delegatePrivateKey,
-      data: typedInvocationMessage,
-      version: SignTypedDataVersion.V5,
-    });
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
     const signedInvocation = {
       signature: invocationSig,
       invocations: invocationMessage,
@@ -149,10 +150,10 @@ async function createDelegations (bidNumbers, yourContract) {
 
     const typedMessageParams = {
       data: typedMessage,
-      version: 'V5',
+      version: 'V4',
     }
 
-    const signature = signTypedData(accounts[i].wallets[0].privateKey, typedMessageParams, 'V5');
+    const signature = sigUtil.signTypedData_v4(accounts[i].wallets[0].privateKey, typedMessageParams);
 
     const signedBid = {
       bid: message,
@@ -173,7 +174,7 @@ async function deployContract () {
 
 function createTypedMessage (yourContract, message, primaryType) {
   const chainId = yourContract.deployTransaction.chainId;
-  return {
+  return { data: {
     types,
     primaryType,
     domain: {
@@ -183,7 +184,7 @@ function createTypedMessage (yourContract, message, primaryType) {
       verifyingContract: yourContract.address,
     },
     message,
-  };
+  }};
 }
 
 async function giveEtherTo (address) {

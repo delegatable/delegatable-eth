@@ -10,7 +10,6 @@ const {
   encodeType,
 } = require('signtypeddata-v5').TypedDataUtils;
 
-
 function generateCodeFrom (types) {
   let results = [];
 
@@ -35,14 +34,17 @@ function generatePacketHashGetters (types, typeName, fields, packetHashGetters =
     generateArrayPacketHashGetter(typeName, packetHashGetters);
   } else {
     packetHashGetters.push(`
-function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
-  bytes memory encoded = abi.encodePacked(
-    ${ typeName.toUpperCase() }_TYPEHASH,
-    ${ fields.map(getEncodedValueFor).join(',\n') }
-  );
-  return keccak256(encoded);
-}
-`);
+  function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
+    console.log("${typeName} typehash: ");
+    console.logBytes32(${typeName.toUpperCase()}_TYPEHASH);
+    bytes memory encoded = abi.encode(
+      ${ typeName.toUpperCase() }_TYPEHASH,
+      ${ fields.map(getEncodedValueFor).join(',\n      ') }
+    );
+    console.log("Encoded our ${typeName}: ");
+    console.logBytes(encoded);
+    return keccak256(encoded);
+  }`);
   }
 
   fields.forEach((field) => {
@@ -55,9 +57,14 @@ function ${packetHashGetterName(typeName)} (${typeName} memory _input) public re
 }
 
 function getEncodedValueFor (field) {
-  const basicEncodableTypes = ['address', 'bool', 'bytes', 'bytes32', 'int', 'uint', 'uint256', 'string'];
+  const basicEncodableTypes = ['address', 'bool', 'bytes32', 'int', 'uint', 'uint256', 'string'];
+  const hashedTypes = ['bytes'];
   if (basicEncodableTypes.includes(field.type)) {
     return `_input.${field.name}`;
+  }
+
+  if (hashedTypes.includes(field.type)) {
+    return `keccak256(_input.${field.name})`;
   }
 
   return `${packetHashGetterName(field.type)}(_input.${field.name})`; 
@@ -73,7 +80,7 @@ function packetHashGetterName (typeName) {
 function generateArrayPacketHashGetter (typeName, packetHashGetters) {
   console.log(`Generating array packet hash getter for ${typeName}`);
   packetHashGetters.push(`
-function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
+  function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
     bytes memory encoded;
     for (uint i = 0; i < _input.length; i++) {
       encoded = bytes.concat(
@@ -81,10 +88,11 @@ function ${packetHashGetterName(typeName)} (${typeName} memory _input) public re
         ${packetHashGetterName(typeName.substr(0, typeName.length - 2))}(_input[i])
       );
     }
+    console.log("Encoded our ${typeName}: ");
+    console.logBytes(encoded);
     bytes32 hash = keccak256(encoded);
     return hash;
-  }
-`);
+  }`);
 }
 
 function updateSolidity () {
