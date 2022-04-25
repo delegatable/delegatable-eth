@@ -10,6 +10,8 @@ const {
   encodeType,
 } = require('signtypeddata-v5').TypedDataUtils;
 
+const LOGGING_ENABLED = false;
+
 function generateCodeFrom (types) {
   let results = [];
 
@@ -35,14 +37,14 @@ function generatePacketHashGetters (types, typeName, fields, packetHashGetters =
   } else {
     packetHashGetters.push(`
   function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
-    console.log("${typeName} typehash: ");
-    console.logBytes32(${typeName.toUpperCase()}_TYPEHASH);
+    ${ LOGGING_ENABLED ? `console.log("${typeName} typehash: ");
+    console.logBytes32(${typeName.toUpperCase()}_TYPEHASH);` : ''}
     bytes memory encoded = abi.encode(
       ${ typeName.toUpperCase() }_TYPEHASH,
       ${ fields.map(getEncodedValueFor).join(',\n      ') }
     );
-    console.log("Encoded our ${typeName}: ");
-    console.logBytes(encoded);
+    ${LOGGING_ENABLED ? `console.log("Encoded ${typeName}: ");
+    console.logBytes(encoded);` : ''}
     return keccak256(encoded);
   }`);
   }
@@ -88,8 +90,8 @@ function generateArrayPacketHashGetter (typeName, packetHashGetters) {
         ${packetHashGetterName(typeName.substr(0, typeName.length - 2))}(_input[i])
       );
     }
-    console.log("Encoded our ${typeName}: ");
-    console.logBytes(encoded);
+    ${LOGGING_ENABLED ? `console.log("Encoded ${typeName}: ");
+    console.logBytes(encoded);` : ''}
     bytes32 hash = keccak256(encoded);
     return hash;
   }`);
