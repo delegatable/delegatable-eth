@@ -1,53 +1,13 @@
-module.exports = {
+const hardTypes = require('./scripts/types');
 
-  EIP712Domain: {
-    name: 'string',
-    version: 'string',
-    chainId: 'uint256',
-    verifyingContract: 'address',
-  },
+const easyTypes = {};
 
-  Invocation: {
-    transaction: 'Transaction',
-    replayProtection: 'ReplayProtection',
-    authority: 'SignedDelegation[]',
-  },
+Object.keys(hardTypes.types).forEach((typeName) => {
+  const fields = hardTypes.types[typeName];
+  easyTypes[typeName] = {};
+  fields.forEach((field) => {
+    easyTypes[typeName][field.name] = field.type;
+  });
+});
 
-  Invocations: {
-    batch: 'Invocation[]',
-  },
-
-  SignedInvocation: {
-    invocations: 'Invocations',
-    signature: 'bytes',
-  },
-
-  Transaction: {
-    to: 'address',
-    from: 'address',
-    gasLimit: 'uint256',
-    data: 'bytes',
-  },
-
-  ReplayProtection: {
-    nonce: 'uint256',
-    queue: 'uint256',
-  },
-
-  SignedDelegation: {
-    delegation: 'Delegation',
-    signature: 'bytes',
-  },
-
-  Delegation: {
-    delegate: 'address',
-    authority: 'bytes32',
-    caveats: 'Caveat[]',
-  },
-
-  Caveat: {
-    enforcer: 'address',
-    terms: 'bytes',
-  },
-
-}
+module.exports = easyTypes;
