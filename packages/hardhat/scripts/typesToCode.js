@@ -27,7 +27,6 @@ function generateCodeFrom (types) {
   const uniqueGetters = [...new Set(packetHashGetters)];
   console.log(`or uniquely, just ${uniqueGetters.length}`, uniqueGetters);
 
-
   return { setup: results, packetHashGetters: [...new Set(packetHashGetters)] };
 }
 

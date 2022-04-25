@@ -327,130 +327,13 @@ _input.signature
         return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
     }
   
-    function verifyInvocationSignature (SignedInvocation calldata signedInvocation) public returns (address) {
-      bytes32 sigHash = getInvocationTypedDataHash(signedInvocation.invocations);
+    function verifyInvocationSignature (SignedInvocation memory signedInvocation) public returns (address) {
+      bytes32 sigHash = GET_INVOCATIONS_PACKETHASH(signedInvocation.invocations);
       console.log("Invocation signature hash:");
       console.logBytes32(sigHash);
       address recoveredSignatureSigner = recover(sigHash, signedInvocation.signature);
       return recoveredSignatureSigner;
-    }
-  
-    function getInvocationTypedDataHash (Invocations calldata invocations) public returns (bytes32) {
-      console.log("Invocations typehash:");
-      console.logBytes32(INVOCATIONS_TYPEHASH);
-      bytes32 invocationsHash = getInvocationsPacketHash(invocations);
-      console.log("Invocations hash:");
-      console.logBytes32(invocationsHash);
-  
-      bytes32 digest = keccak256(abi.encodePacked(
-        "\x19\x01",
-        domainHash,
-        invocationsHash
-      ));
-      console.log("Produces the typed data hash digest");
-      console.logBytes32(digest);
-      return digest;
-    }
-  
-    function getInvocationsPacketHash(Invocations memory invocations) public returns (bytes32) {
-      console.log("Invocations type hash:");
-      console.logBytes32(INVOCATIONS_TYPEHASH);
-  
-      return keccak256(abi.encode(
-        INVOCATIONS_TYPEHASH,
-        getBatchPacketHash(invocations.batch)
-      ));
-    }
-  
-    function getBatchPacketHash (Invocation[] memory batch) public returns (bytes32) {
-      bytes memory encoded;
-      for (uint i = 0; i < batch.length; i++) {
-        Invocation memory invocation = batch[i];
-        encoded = bytes.concat(
-          encoded,
-          getInvocationPacketHash(invocation)
-        );
-      }
-  
-      console.log("Encoded Invocation[]:");
-      console.logBytes(encoded);
-      bytes32 hashed = keccak256(encoded);
-      console.log("Hashed Invocation:");
-      console.logBytes32(hashed);
-      return hashed;
-    }
-  
-    function getInvocationPacketHash (Invocation memory invocation) public returns (bytes32) {
-      console.log("Contract own address: %s", address(this));
-      console.log("Invocation typehash");
-      console.logBytes32(INVOCATION_TYPEHASH);
-  
-      bytes memory encodedInvocation = abi.encodePacked(
-        INVOCATION_TYPEHASH,
-        getTransactionPacketHash(invocation.transaction),
-        getReplayProtectionPacketHash(invocation.replayProtection),
-        getSignedDelegationArrayPacketHash(invocation.authority)
-      );
-  
-      console.log("Encoded invocation:");
-      console.logBytes(encodedInvocation);
-      bytes32 digest = keccak256(encodedInvocation);
-  
-      console.log("Invocation packet hash:");
-      console.logBytes32(digest);
-      return digest;
-    }
-  
-    function getTransactionPacketHash (Transaction memory transaction) public returns (bytes32) {
-      bytes memory encoded = abi.encode(
-        TRANSACTION_TYPEHASH,
-        transaction.to,
-        transaction.from,
-        transaction.gasLimit,
-        keccak256(transaction.data)
-      );
-      console.log("Encoded transaction:");
-      console.logBytes(encoded);
-      return keccak256(encoded);
-    }
-  
-    function getReplayProtectionPacketHash (ReplayProtection memory replayProtection) public returns (bytes32) {
-      bytes memory encoded = abi.encode(
-        REPLAYPROTECTION_TYPEHASH,
-        replayProtection.nonce,
-        replayProtection.queue
-      );
-      console.log("Encoded replay protection:");
-      console.logBytes(encoded);
-      return keccak256(encoded);
-    }
-  
-    function getSignedDelegationArrayPacketHash (SignedDelegation[] memory authority) public returns (bytes32) {
-      bytes memory encoded;
-      console.log("Encoding authority");
-      for (uint i = 0; i < authority.length; i++) {
-        encoded = bytes.concat(
-          encoded,
-          getSignedDelegationPacketHash(authority[i])
-        );
-      }
-  
-      console.log("Encoded authority (SignedDelegation[]):");  
-      console.logBytes(encoded);
-      bytes32 hash = keccak256(encoded);
-      return hash;
-    }
-  
-    function getSignedDelegationPacketHash (SignedDelegation memory signedDelegation) public returns (bytes32) {
-      bytes memory encoded = abi.encode(
-        SIGNEDDELEGATION_TYPEHASH,
-        getDelegationPacketHash(signedDelegation.delegation),
-        keccak256(signedDelegation.signature)
-      );
-      console.log("Encoded signed delegation:");
-      console.logBytes(encoded);
-      return keccak256(encoded);
-    }
+    } 
   
     function verifyDelegationSignature (SignedDelegation memory signedDelegation) public returns (address) {
       Delegation memory delegation = signedDelegation.delegation;
@@ -469,50 +352,13 @@ _input.signature
       bytes32 digest = keccak256(abi.encodePacked(
         "\x19\x01",
         domainHash,
-        getDelegationPacketHash(delegation)
+        GET_DELEGATION_PACKETHASH(delegation)
       ));
       console.log("Produces the typed data hash digest");
       console.logBytes32(digest);
       return digest;
     }
   
-    function getDelegationPacketHash(Delegation memory delegation) public returns (bytes32) {
-      console.log("Delegation typehash:");
-      console.logBytes32(DELEGATION_TYPEHASH);
-      console.log("Delegate encoded:%s", delegation.delegate);
-      console.log("Delegated authority:");
-      console.logBytes32(delegation.authority);
-  
-      bytes memory encoded = abi.encode(
-        DELEGATION_TYPEHASH,
-        delegation.delegate,
-        delegation.authority,
-        getCaveatsPacketHash(delegation.caveats)
-      );
-      console.log("Encoded:");
-      console.logBytes(encoded);
-      return keccak256(encoded);
-    }
-  
-    function getCaveatsPacketHash (Caveat[] memory caveats) public view returns (bytes32) {
-      bytes memory encoded;
-      for (uint i = 0; i < caveats.length; i++) {
-        Caveat memory caveat = caveats[i];
-        encoded = bytes.concat(
-          encoded,
-          abi.encode(
-            CAVEAT_TYPEHASH,
-            caveat.enforcer,
-            keccak256(caveat.terms)
-          )
-        );
-      }
-  
-      console.log("Encoded caveats:");
-      console.logBytes(encoded);
-      return keccak256(encoded);
-    }
- 
     function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public view returns (bytes32) {
       console.log("The getEIP712TypeHash() is:");
       console.logBytes32(EIP712DOMAIN_TYPEHASH);
