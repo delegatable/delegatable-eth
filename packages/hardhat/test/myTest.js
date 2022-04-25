@@ -47,6 +47,7 @@ describe(CONTRACT_NAME, function () {
     console.log(`Addr2: ${addr2.address}`);
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+    console.log('deployed tx', yourContract.deployTransaction);
     const contract = await ethers.provider.getCode(yourContract.address);
     console.log('contract:', contract);
 
