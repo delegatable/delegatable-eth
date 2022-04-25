@@ -358,7 +358,7 @@ abstract contract Delegatable is ECRecovery {
     }
   
     function verifyInvocationSignature (SignedInvocation memory signedInvocation) public returns (address) {
-      bytes32 sigHash = GET_INVOCATIONS_PACKETHASH(signedInvocation.invocations);
+      bytes32 sigHash = getInvocationsTypedDataHash(signedInvocation.invocations);
       console.log("Invocation signature hash:");
       console.logBytes32(sigHash);
       address recoveredSignatureSigner = recover(sigHash, signedInvocation.signature);
@@ -386,6 +386,15 @@ abstract contract Delegatable is ECRecovery {
       ));
       console.log("Produces the typed data hash digest");
       console.logBytes32(digest);
+      return digest;
+    }
+
+    function getInvocationsTypedDataHash (Invocations memory invocations) public returns (bytes32) {
+      bytes32 digest = keccak256(abi.encodePacked(
+        "\x19\x01",
+        domainHash,
+        GET_INVOCATIONS_PACKETHASH(invocations)
+      ));
       return digest;
     }
   
