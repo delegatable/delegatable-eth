@@ -36,7 +36,7 @@ function generatePacketHashGetters (types, typeName, fields, packetHashGetters =
     generateArrayPacketHashGetter(typeName, packetHashGetters);
   } else {
     packetHashGetters.push(`
-  function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
+  function ${packetHashGetterName(typeName)} (${typeName} memory _input) public pure returns (bytes32) {
     ${ LOGGING_ENABLED ? `console.log("${typeName} typehash: ");
     console.logBytes32(${typeName.toUpperCase()}_TYPEHASH);` : ''}
     bytes memory encoded = abi.encode(
@@ -82,7 +82,7 @@ function packetHashGetterName (typeName) {
 function generateArrayPacketHashGetter (typeName, packetHashGetters) {
   console.log(`Generating array packet hash getter for ${typeName}`);
   packetHashGetters.push(`
-  function ${packetHashGetterName(typeName)} (${typeName} memory _input) public returns (bytes32) {
+  function ${packetHashGetterName(typeName)} (${typeName} memory _input) public pure returns (bytes32) {
     bytes memory encoded;
     for (uint i = 0; i < _input.length; i++) {
       encoded = bytes.concat(
