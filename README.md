@@ -1,9 +1,9 @@
-# Delegatable Eth 
+# Delegatable
 
 An abstract solidity contract that any contract can easily integrate to add a ton of improvements to that contract's user and developer experience for all of its functions:
 - Allow users to sign "invocations" instead of transactions, which bring lots of benefits.
 - Support for MetaTransactions
-- Support for batched operations 
+- Support for batched operations
 - Support for signing multiple actions that aren't blocked by each other
 - Support for signing commitments that can be lazily submitted to the blockchain later
 - Allow users to sign offchain messages that delegate authority to perform any action they can perform, along with an open-ended system for adding restrictions to that delegation, including revocation.
