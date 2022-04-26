@@ -277,7 +277,7 @@ abstract contract Delegatable is ECRecovery {
             // TODO: Make sure this hash is sound, probably just use the 712 encoding. I did this quickly for MVP.
             // Also, maybe delegations should have replay protection, at least a nonce (non order dependent),
             // otherwise once it's revoked, you can't give the exact same permission again.
-            bytes32 delegationHash = keccak256(abi.encode(signedDelegation));
+            bytes32 delegationHash = GET_SIGNEDDELEGATION_PACKETHASH(signedDelegation);
             require(!isRevoked[delegationHash], "Delegation revoked");
   
             // TODO: Walk the Caveat array here.
