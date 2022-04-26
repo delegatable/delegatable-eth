@@ -74,12 +74,12 @@ describe(CONTRACT_NAME, function () {
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
     const delegatePrivateKey = fromHexString(account1PrivKey);
     const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
       batch: [{
         authority: [signedDelegation],
-        replayProtection: {
-          nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          queue: '0x0000000000000000000000000000000000000000000000000000000000000000',
-        },
         transaction: {
           to: yourContract.address,
           gasLimit: '10000000000000000',
@@ -160,12 +160,12 @@ describe(CONTRACT_NAME, function () {
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
     const delegatePrivateKey = fromHexString(account2PrivKey);
     const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
       batch: [{
         authority: [signedDelegation, signedDelegation2],
-        replayProtection: {
-          nonce: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          queue: '0x0000000000000000000000000000000000000000000000000000000000000000',
-        },
         transaction: {
           to: yourContract.address,
           gasLimit: '10000000000000000',
