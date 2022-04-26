@@ -191,51 +191,6 @@ describe(CONTRACT_NAME, function () {
   })
 });
 
-async function createAccounts(num = 10) {
-  const accounts = [];
-
-  for (let i = 0; i < num; i++) {
-    const keyring = new Keyring();
-    await keyring.addAccounts(1);
-    accounts.push(keyring);
-  }
-
-  return accounts;
-}
-
-async function createDelegations (bidNumbers, yourContract) {
-  const delegations = [];
-  const accounts = await createAccounts(bidNumbers.length);
-
-  for (let i = 0; i < bidNumbers.length; i++) {
-    const [address] = await accounts[i].getAccounts()
-    await giveEtherTo(address);
-
-    const signer = new ethers.Wallet(accounts[i].wallets[0].privateKey, ethers.provider);
-
-    const message = {
-    };
-
-    const typedMessage = createTypedMessage(yourContract, message);
-
-    const typedMessageParams = {
-      data: typedMessage,
-      version: 'V4',
-    }
-
-    const signature = sigUtil.signTypedData_v4(accounts[i].wallets[0].privateKey, typedMessageParams);
-
-    const signedBid = {
-      bid: message,
-      sig: signature,
-    };
-
-    delegations.push(signedBid);
-  }
-
-  return delegations;
-}
-
 async function deployContract () {
   const YourContract = await ethers.getContractFactory(CONTRACT_NAME);
   const yourContract = await YourContract.deploy(CONTRACT_NAME);
@@ -255,14 +210,6 @@ function createTypedMessage (yourContract, message, primaryType) {
     },
     message,
   }};
-}
-
-async function giveEtherTo (address) {
-  const [owner] = await ethers.getSigners();
-  await owner.sendTransaction({
-    to: address,
-    value: BigNumber.from(10).pow(18),
-  });
 }
 
 function fromHexString (hexString) {
@@ -285,12 +232,4 @@ function signTypedDataify (friendlyTypes) {
     });
   });
   return types;
-}
-
-async function timeout (ms) {
-  return new Promise ((resolve, reject) => {
-    setTimeout(() => {
-      resolve();
-    }, ms); 
-  });
 }
