@@ -14,11 +14,40 @@ You can read about [the theory behind this library here](https://roamresearch.co
 
 ## Integration in a Solidity project
 
-Not that this is far enough along to really use yet, but the intention is that you will:
+```
+pragma solidity ^0.8.13;
 
+import "./Delegatable.sol";
+
+contract YourContract is Delegatable {
+
+  function _msgSender () internal view override(Delegatable, Context) returns (address sender) {
+    if(msg.sender == address(this)) {
+      bytes memory array = msg.data;
+      uint256 index = msg.data.length;
+      assembly {
+        // Load the 32 bytes word from memory with the address on the lower 20 bytes, and mask those.
+        sender := and(mload(add(array, index)), 0xffffffffffffffffffffffffffffffffffffffff)
+      }
+    } else {
+      sender = msg.sender;
+    }
+    return sender;
+  }
+
+}
+```
+
+To use this in your own contract, follow these simple steps:
 - inherit your contract from [contracts/Delegatable.sol](./packages/hardhat/contracts/Delegatable.sol).
-- Use the msgSender() "standard" trick: Never call `msg.sender` directly to enforce policy, always call the internal private method `_msgSender()`, so that metaTransactions and other parts of code can assign a custom sender. [Examples here](https://github.com/anydotcrypto/metatransactions).
-- If you are inheriting from multiple contracts that implement `_msgSender`, you may need to implement your own override method as shown in `contracts/YourContract.sol`.
+- Add our sample `_msgSender()` method to your contract, as seen in [our sample contract](./packages/hardhat/contracts/YourContract.sol).
+- If you are inheriting from any contracts that use `msg.sender` to identify a user, you should now use the `_msgSender()` method instead, to benefit from this framework. Conveniently, it seems that most [OpenZeppelin libraries](https://openzeppelin.com/contracts/) already use an internal `_msgSender()` implementation, and so overriding it as shown should be enough to use those libraries.
+
+## Integration into a web frontend
+
+These contracts should be compatible with any signer or wallet that supports [signTypedData_v4, like MetaMask](https://docs.metamask.io/guide/signing-data.html#sign-typed-data-v4).
+
+You will be calling the `eth_signTypedData` method with the `V4` parameter, as seen in [the test files](./packages/hardhat/test/myTest.js).
 
 ## How it's set up
 
