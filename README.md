@@ -2,10 +2,11 @@
 
 An abstract solidity contract that any contract can easily integrate to add a ton of improvements to that contract's user and developer experience for all of its functions:
 - Allow users to sign "invocations" instead of transactions, which bring lots of benefits.
+- Invocations bring the full user-readability of [signTypedData](https://docs.metamask.io/guide/signing-data.html#sign-typed-data-v4) for all of that app's operations.
 - Support for MetaTransactions
-- Support for batched operations
-- Support for signing multiple actions that aren't blocked by each other
-- Support for signing commitments that can be lazily submitted to the blockchain later
+- Support for batched operations: Many actions in one transaction, and potentially lower gas costs.
+- Support for signing multiple actions that aren't blocked by each other, so an urgent transaction isn't blocked by the low nonce of a low-stakes low-gas bid transaction.
+- Support for signing commitments that can be lazily submitted to the blockchain later.
 - Allow users to sign offchain messages that delegate authority to perform any action they can perform, along with an open-ended system for adding restrictions to that delegation, including revocation.
 - Allow the holder of any delegation to issue a delegation from it, also with an off-chain signature and no up-front gas.
 - Allows creating invite links to users who don't have accounts set up yet, by signing delegations to a key you send to them.
