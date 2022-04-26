@@ -99,7 +99,7 @@ function generateArrayPacketHashGetter (typeName, packetHashGetters) {
 
 function updateSolidity () {
   const { setup, packetHashGetters } = generateCodeFrom(types);
-  const filePath = path.join(__dirname, '../contracts/Delegatable.sol');
+  const filePath = path.join(__dirname, '../contracts/EIP712Decoder.sol');
   const file = fs.readFileSync(filePath, 'utf8').toString();
   const oldFile = file.split('\n');
   const newFile = [];
