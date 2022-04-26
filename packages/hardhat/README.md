@@ -1,4 +1,6 @@
-# Counterfactual Delegator
+# Delegatable
+
+![delegation](./packages/react-app/public/delegation.png)
 
 A solidity subclass for enabling any evm smart contract to support counterfactual chains of delegation with arbitrary caveats, and MetaTransactions.
 
