@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import "./TypesAndDecoders.sol";
 import "./caveat-enforcers/CaveatEnforcer.sol";
-import "hardhat/console.sol";
 
 abstract contract Delegatable is EIP712Decoder {
 
@@ -75,13 +74,10 @@ abstract contract Delegatable is EIP712Decoder {
         // That way the next delegation can be verified against it.
         authHash = delegationHash;
         canGrant = delegation.delegate;
-        // console.log("Delegation chain has extended to %s", canGrant);
       }
 
       // Here we perform the requested invocation.
       Transaction memory transaction = invocation.transaction;
-      //console.log("Trying out this transaction from %s to %s", transaction.from, tx.to);
-      //console.logBytes(tx.data);
 
       require(transaction.to == address(this), "Invocation target does not match");
       success = execute(
@@ -123,7 +119,6 @@ abstract contract Delegatable is EIP712Decoder {
       SignedDelegation calldata signedDelegation = delegations[i];
       address delegationSigner = verifyDelegationSignature(signedDelegation);
       address sender = _msgSender();
-      console.log("Checking if signer %s matches sender %s", delegationSigner, sender);
       require(delegationSigner == sender, "Revocations must be signed by the delegator");
       bytes32 delegationHash = keccak256(abi.encode(signedDelegation));
       isRevoked[delegationHash] = true;
@@ -132,8 +127,6 @@ abstract contract Delegatable is EIP712Decoder {
 
   function verifyInvocationSignature (SignedInvocation memory signedInvocation) public view returns (address) {
     bytes32 sigHash = getInvocationsTypedDataHash(signedInvocation.invocations);
-    // console.log("Invocation signature hash:");
-    // console.logBytes32(sigHash);
     address recoveredSignatureSigner = recover(sigHash, signedInvocation.signature);
     return recoveredSignatureSigner;
   } 
@@ -141,13 +134,7 @@ abstract contract Delegatable is EIP712Decoder {
   function verifyDelegationSignature (SignedDelegation memory signedDelegation) public view returns (address) {
     Delegation memory delegation = signedDelegation.delegation;
     bytes32 sigHash = getDelegationTypedDataHash(delegation);
-    // console.log("Delegation signature hash:");
-    // console.logBytes32(sigHash);
-    // console.log("Delegation signature:");
-    // console.logBytes(signedDelegation.signature);
-
     address recoveredSignatureSigner = recover(sigHash, signedDelegation.signature);
-    // console.log("Recovered delegation signer: %s", recoveredSignatureSigner);
     return recoveredSignatureSigner;
   }
 
@@ -157,8 +144,6 @@ abstract contract Delegatable is EIP712Decoder {
       domainHash,
       GET_DELEGATION_PACKETHASH(delegation)
     ));
-    // console.log("Produces the typed data hash digest");
-    // console.logBytes32(digest);
     return digest;
   }
 
@@ -172,8 +157,6 @@ abstract contract Delegatable is EIP712Decoder {
   }
 
   function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public pure returns (bytes32) {
-    // console.log("The getEIP712TypeHash() is:");
-    // console.logBytes32(EIP712DOMAIN_TYPEHASH);
     bytes memory encoded = abi.encode(
       EIP712DOMAIN_TYPEHASH,
       keccak256(bytes(contractName)),
@@ -181,8 +164,6 @@ abstract contract Delegatable is EIP712Decoder {
       chainId,
       verifyingContract
     );
-    // console.log("The encoded EIP712 domain is:");
-    // console.logBytes(encoded);
     return keccak256(encoded);
   }
 
