@@ -76,10 +76,6 @@ bytes32 constant SIGNEDDELEGATION_TYPEHASH = keccak256("SignedDelegation(Delegat
 
 error InvalidSignature (uint invocationIndex);
 
-abstract contract CaveatEnforcer {
-  function enforceCaveat (bytes calldata terms, Transaction calldata tx) virtual public returns (bool);
-}
-  
 abstract contract Delegatable is ECRecovery {
   
   // This value MUST be set in the constructor of the form:
