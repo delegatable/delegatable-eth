@@ -21,6 +21,8 @@ import "./Delegatable.sol";
 
 contract YourContract is Delegatable {
 
+  constructor(string memory name) Delegatable(name, "1") {}
+
   function _msgSender () internal view override(Delegatable, Context) returns (address sender) {
     if(msg.sender == address(this)) {
       bytes memory array = msg.data;
@@ -40,6 +42,7 @@ contract YourContract is Delegatable {
 
 To use this in your own contract, follow these simple steps:
 - inherit your contract from [contracts/Delegatable.sol](./packages/hardhat/contracts/Delegatable.sol).
+- Your constructor will need to pass the `Delegatable` class a name for your contract, and a version string, per [EIP 712](https://eips.ethereum.org/EIPS/eip-712).
 - Add our sample `_msgSender()` method to your contract, as seen in [our sample contract](./packages/hardhat/contracts/YourContract.sol).
 - If you are inheriting from any contracts that use `msg.sender` to identify a user, you should now use the `_msgSender()` method instead, to benefit from this framework. Conveniently, it seems that most [OpenZeppelin libraries](https://openzeppelin.com/contracts/) already use an internal `_msgSender()` implementation, and so overriding it as shown should be enough to use those libraries.
 
