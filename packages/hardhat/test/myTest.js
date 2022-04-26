@@ -34,7 +34,7 @@ describe(CONTRACT_NAME, function () {
     try {
       await yourContract.connect(addr1).setPurpose(targetString);
     } catch (err) {
-      expect(err.message).to.include('Not owner approved');
+      expect(err.message).to.include('Ownable: caller is not the owner');
     }
   });
 

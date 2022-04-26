@@ -286,7 +286,7 @@ abstract contract Delegatable is ECRecovery {
           // And set the MsgSender to the original delegator.
           // console.log("Because of all that work, we are setting msg sender to %s", invocationSigner);
           require(invocationSigner == canGrant, "Signer was not delegated to.");
-          _setMsgSender(intendedSender);
+
           // Here we perform the requested invocation.
           Transaction memory transaction = invocation.transaction;
           //console.log("Trying out this transaction from %s to %s", transaction.from, tx.to);
@@ -296,7 +296,8 @@ abstract contract Delegatable is ECRecovery {
           success = execute(
             transaction.to,
             transaction.data,
-            transaction.gasLimit
+            transaction.gasLimit,
+            intendedSender
           );
           require(success, "Delegator execution failed");
           // console.log("Success?: %s", success);
@@ -308,10 +309,12 @@ abstract contract Delegatable is ECRecovery {
     function execute(
         address to,
         bytes memory data,
-        uint256 gasLimit
+        uint256 gasLimit,
+        address sender
     ) internal returns (bool success) {
+      bytes memory full = abi.encodePacked(data, sender);
       assembly {
-        success := call(gasLimit, to, 0, add(data, 0x20), mload(data), 0, 0)
+        success := call(gasLimit, to, 0, add(full, 0x20), mload(full), 0, 0)
       }
     }
   
@@ -324,17 +327,6 @@ abstract contract Delegatable is ECRecovery {
       // Require that signer is equal to msgSender()
       // Get the hash of the SignedDelegation
       // Set its revoked value to true.
-    }
-  
-    // TODO: Migrate this context variable to Diamond storage so this contract can work in a facet.
-    // https://eip2535diamonds.substack.com/p/appstorage-pattern-for-state-variables?s=r
-    address currentContextAddress = address(0);
-    function _setMsgSender (address contextAddress) internal {
-        currentContextAddress = contextAddress;
-    }
-  
-    function _msgSender () internal view virtual returns (address) {
-        return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
     }
   
     function verifyInvocationSignature (SignedInvocation memory signedInvocation) public view returns (address) {
@@ -392,6 +384,20 @@ abstract contract Delegatable is ECRecovery {
       // console.logBytes(encoded);
       return keccak256(encoded);
     } 
+
+    function _msgSender () internal view virtual returns (address sender) {
+      if(msg.sender == address(this)) {
+        bytes memory array = msg.data;
+        uint256 index = msg.data.length;
+        assembly {
+          // Load the 32 bytes word from memory with the address on the lower 20 bytes, and mask those.
+          sender := and(mload(add(array, index)), 0xffffffffffffffffffffffffffffffffffffffff)
+        }
+      } else {
+        sender = msg.sender;
+      }
+      return sender;
+    }
   }
   
   

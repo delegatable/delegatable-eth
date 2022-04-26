@@ -5,30 +5,27 @@ import "./Delegatable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol"; //https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
 
 contract YourContract is Ownable, Delegatable {
-
-  event SetPurpose(address sender, string purpose);
   string public purpose = "Building Unstoppable Apps!!!";
 
   constructor(string memory name) Delegatable(name, "1") {}
 
   // Note that this contract solely permits the owner to set purpose.
   // The tests will demonstrate a variety of ways the owner can delegate this power.
-  function setPurpose(string calldata newPurpose) public {
-    address sender = _msgSender();
-    address _owner = owner();
-    require(sender == _owner, "Not owner approved");
-    emit SetPurpose(_owner, purpose);
-
-    /**
-     * ALERT! Somehow, this assignment is the only line that can be un-commented and pass here.
-     * Try it! What I've found is everything else seems to happen, but then
-     * The assignment silently fails. There's no revert, just it doesn't assign.
-     * I can't make heads or tails of it. Making a commit to ask others' input.
-     */
+  function setPurpose(string calldata newPurpose) onlyOwner public {
     purpose = newPurpose;
   }
 
-  function _msgSender () internal view override(Delegatable, Context) returns (address) {
-      return currentContextAddress == address(0) ? msg.sender : currentContextAddress;
+  function _msgSender () internal view override(Delegatable, Context) returns (address sender) {
+    if(msg.sender == address(this)) {
+      bytes memory array = msg.data;
+      uint256 index = msg.data.length;
+      assembly {
+        // Load the 32 bytes word from memory with the address on the lower 20 bytes, and mask those.
+        sender := and(mload(add(array, index)), 0xffffffffffffffffffffffffffffffffffffffff)
+      }
+    } else {
+      sender = msg.sender;
+    }
+    return sender;
   }
 }
