@@ -40,8 +40,8 @@ describe(CONTRACT_NAME, function () {
   });
 
   it('can sign a delegation to a second account', async () => {
-    const [_owner, addr1, addr2] = await ethers.getSigners();
-    console.log(`owner: ${_owner.address}`);
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`owner: ${owner.address}`);
     console.log(`addr1: ${addr1.address}`);
     console.log(`addr2: ${addr2.address}`);
 
@@ -105,8 +105,8 @@ describe(CONTRACT_NAME, function () {
   })
 
   it('delegates can delegate', async () => {
-    const [_owner, addr1, addr2, addr3] = await ethers.getSigners();
-    console.log(`owner: ${_owner.address}`);
+    const [owner, addr1, addr2, addr3] = await ethers.getSigners();
+    console.log(`owner: ${owner.address}`);
     console.log(`addr1: ${addr1.address}`);
     console.log(`addr2: ${addr2.address}`);
     console.log(`addr3: ${addr3.address}`);
@@ -189,6 +189,117 @@ describe(CONTRACT_NAME, function () {
     // Verify the change was made:
     expect(await yourContract.purpose()).to.equal(targetString);
   })
+
+  it('users can revoke a delegation they have issued', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`owner: ${owner.address}`);
+    console.log(`addr1: ${addr1.address}`);
+    console.log(`addr2: ${addr2.address}`);
+
+    const targetString = 'A totally DELEGATED purpose!'
+    const yourContract = await deployContract();
+
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegation is revoked by its issuer:
+    const delegationHash = TypedDataUtils.hashStruct('SignedDelegation', signedDelegation, types, true);
+    await yourContract.connect(owner).revoke([signedDelegation]);
+
+    // Delegate signs the invocation message:
+    const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
+    const delegatePrivateKey = fromHexString(account1PrivKey);
+    const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
+    const signedInvocation = {
+      signature: invocationSig,
+      invocations: invocationMessage,
+    }
+
+    // A third party can submit the invocation method to the chain:
+    const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+
+    // Verify the change was made:
+    expect(await yourContract.purpose()).to.equal(targetString);
+  });
+
+
+  it('users cannot revoke a delegation from another account', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`owner: ${owner.address}`);
+    console.log(`addr1: ${addr1.address}`);
+    console.log(`addr2: ${addr2.address}`);
+
+    const targetString = 'A totally DELEGATED purpose!'
+    const yourContract = await deployContract();
+
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegation is revoked by its issuer:
+    const delegationHash = TypedDataUtils.hashStruct('SignedDelegation', signedDelegation, types, true);
+    try {
+      await yourContract.connect(owner).revoke([signedDelegation]);
+    } catch (err) {
+      expect(err.message).to.include('Revocations must be signed by the delegator');
+    }
+  });
+
 });
 
 async function deployContract () {
