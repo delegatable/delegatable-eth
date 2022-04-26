@@ -4,22 +4,20 @@ pragma solidity ^0.8.13;
 import "./CaveatEnforcer.sol";
 
 contract AllowedMethods is CaveatEnforcer {
-  function enforceCaveat(bytes memory terms, Transaction memory tx) public override returns (bool) {
-    //bytes4 sig = bytes4(tx.data[:4]);
-    return execute(terms);
-  }
+  function enforceCaveat(
+    bytes calldata terms,
+    Transaction calldata transaction
+  ) public pure override returns (bool) {
 
-  function execute(bytes memory data) internal returns (bool success) {
-    address recipient = address(this);
-    uint256 gasLimit = gasleft();
-    assembly {
-      success := call(gasLimit, recipient, 0, add(data, 0x20), mload(data), 0, 0)
-    }
-  }
+    bytes4 targetSig = bytes4(transaction.data[0:4]);
 
-  function permitMethods (bytes4[] calldata methods) public {
-    for (uint256 i = 0; i < methods.length; i++) {
-      bytes4 method = methods[i];
+    for (uint i = 0; i < terms.length; i += 4) {
+      bytes4 allowedSig = bytes4(terms[i:i+4]);
+      if (allowedSig == targetSig) {
+        return true;
+      }
     }
+
+    return false;
   }
 }
