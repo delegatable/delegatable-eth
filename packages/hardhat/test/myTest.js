@@ -28,7 +28,7 @@ describe(CONTRACT_NAME, function () {
   });
 
   it('other accounts cannot set purpose', async () => {
-    const [owner, addr1] = await ethers.getSigners();
+    const [_owner, addr1] = await ethers.getSigners();
     const targetString = 'A totally BAD purpose!'
     const yourContract = await deployContract();
     try {
@@ -39,12 +39,13 @@ describe(CONTRACT_NAME, function () {
   });
 
   it('can sign a delegation to a second account', async () => {
-    const [owner, addr1, addr2] = await ethers.getSigners();
+    const [_owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`owner: ${_owner.address}`);
+    console.log(`addr1: ${addr1.address}`);
+    console.log(`addr2: ${addr2.address}`);
+
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
-    const contract = await ethers.provider.getCode(yourContract.address);
-
-    const domainHash = await yourContract.domainHash();
 
     // Prepare the delegation message:
     // This message has no caveats, and authority 0,
@@ -80,7 +81,6 @@ describe(CONTRACT_NAME, function () {
         },
         transaction: {
           to: yourContract.address,
-          from: owner.address,
           gasLimit: '10000000000000000',
           data: desiredTx.data,
         },

@@ -32,7 +32,6 @@ const typedMessage = {
     ],
     Transaction: [
       { name: 'to', type: 'address' },
-      { name: 'from', type: 'address' },
       { name: 'gasLimit', type: 'uint256' },
       { name: 'data', type: 'bytes' },
     ],
