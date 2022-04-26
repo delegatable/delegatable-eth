@@ -132,16 +132,15 @@ abstract contract Delegatable is ECRecovery {
         Delegation memory delegation = signedDelegation.delegation;
         require(delegation.authority == authHash, "Delegation authority does not match previous delegation");
 
-        // Get the hash of this delegation, ensure that it has not been revoked.
-        // Revokability is basically a "free" caveat I'm including. I know, it's more expensive. But it's safer.
-        // TODO: Make sure this hash is sound, probably just use the 712 encoding. I did this quickly for MVP.
-        // Also, maybe delegations should have replay protection, at least a nonce (non order dependent),
+        // TODO: maybe delegations should have replay protection, at least a nonce (non order dependent),
         // otherwise once it's revoked, you can't give the exact same permission again.
         bytes32 delegationHash = GET_SIGNEDDELEGATION_PACKETHASH(signedDelegation);
         require(!isRevoked[delegationHash], "Delegation revoked");
 
-        // TODO: Walk the Caveat array here.
-        // Until this is added, the caveat array does nothing.
+        // Each delegation can include any number of caveats.
+        // A caveat is any condition that may reject a proposed transaction.
+        // The caveats specify an external contract that is passed the proposed tx,
+        // As well as some extra terms that are used to parameterize the enforcer.
         for (uint16 y = 0; y < delegation.caveats.length; y++) {
           CaveatEnforcer enforcer = CaveatEnforcer(delegation.caveats[y].enforcer);
           bool caveatSuccess = enforcer.enforceCaveat(delegation.caveats[y].terms, invocation.transaction);
