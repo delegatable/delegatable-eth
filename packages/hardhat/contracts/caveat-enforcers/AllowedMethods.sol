@@ -5,7 +5,7 @@ import "./CaveatEnforcer.sol";
 
 contract AllowedMethods is CaveatEnforcer {
   function enforceCaveat(bytes memory terms, Transaction memory tx) public override returns (bool) {
-    bytes4 sig = bytes4(tx.data[:4]);
+    //bytes4 sig = bytes4(tx.data[:4]);
     return execute(terms);
   }
 
