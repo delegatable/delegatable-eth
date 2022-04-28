@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "./CaveatEnforcer.sol";
 
-contract AllowedMethods is CaveatEnforcer {
+contract AllowedMethodsEnforcer is CaveatEnforcer {
   function enforceCaveat(
     bytes calldata terms,
     Transaction calldata transaction

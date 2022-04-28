@@ -300,6 +300,150 @@ describe(CONTRACT_NAME, function () {
     }
   });
 
+  it('can allow-list a method with a caveat and it works', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`owner: ${owner.address}`);
+    console.log(`addr1: ${addr1.address}`);
+    console.log(`addr2: ${addr2.address}`);
+
+    const targetString = 'A totally DELEGATED purpose!'
+    const yourContract = await deployContract();
+
+    const AllowListEnforcer = await ethers.getContractFactory('AllowedMethodsEnforcer');
+    const allowListEnforcer = await AllowListEnforcer.deploy();
+    await yourContract.deployed();
+    const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
+    const methodSig = desiredTx.data.substr(0, 10);
+
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [{
+        enforcer: allowListEnforcer.address,
+        terms: methodSig
+      }],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegate signs the invocation message:
+    const delegatePrivateKey = fromHexString(account1PrivKey);
+    const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
+    const signedInvocation = {
+      signature: invocationSig,
+      invocations: invocationMessage,
+    }
+
+    // A third party can submit the invocation method to the chain:
+    const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+
+    // Verify the change was made:
+    expect(await yourContract.purpose()).to.equal(targetString);
+  })
+
+  it('can allow-list a method with a caveat and disallows another method', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    console.log(`owner: ${owner.address}`);
+    console.log(`addr1: ${addr1.address}`);
+    console.log(`addr2: ${addr2.address}`);
+
+    const targetString = 'A totally DELEGATED purpose!'
+    const yourContract = await deployContract();
+
+    const AllowListEnforcer = await ethers.getContractFactory('AllowedMethodsEnforcer');
+    const allowListEnforcer = await AllowListEnforcer.deploy();
+    await yourContract.deployed();
+    const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
+
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [{
+        enforcer: allowListEnforcer.address,
+        terms: '0x00000000', 
+      }],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegate signs the invocation message:
+    const delegatePrivateKey = fromHexString(account1PrivKey);
+    const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
+    const signedInvocation = {
+      signature: invocationSig,
+      invocations: invocationMessage,
+    }
+
+    try {
+      const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+    } catch (err) {
+      expect (err.message).to.include('Caveat rejected');
+    }
+  });
 });
 
 async function deployContract () {

@@ -5,16 +5,23 @@ import "./Delegatable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol"; //https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
 
 contract YourContract is Ownable, Delegatable {
-  string public purpose = "Building Unstoppable Apps!!!";
 
   constructor(string memory name) Delegatable(name, "1") {}
 
-  // Note that this contract solely permits the owner to set purpose.
-  // The tests will demonstrate a variety of ways the owner can delegate this power.
+  string public purpose = "Building Unstoppable Apps!!!";
   function setPurpose(string calldata newPurpose) onlyOwner public {
     purpose = newPurpose;
   }
 
+  mapping (string => bool) isPhisher;
+  function claimIfPhisher (string calldata identifier, bool isAccused) onlyOwner public {
+    isPhisher[identifier] = isAccused;
+  }
+
+  /**
+   * This is boilerplate that must be added to any Delegatable contract if it also inherits
+   * from another class that also implements _msgSender().
+   */
   function _msgSender () internal view override(Delegatable, Context) returns (address sender) {
     if(msg.sender == address(this)) {
       bytes memory array = msg.data;
