@@ -6,7 +6,8 @@ import "./CaveatEnforcer.sol";
 contract AllowedMethodsEnforcer is CaveatEnforcer {
   function enforceCaveat(
     bytes calldata terms,
-    Transaction calldata transaction
+    Transaction calldata transaction,
+    bytes32 delegationHash
   ) public pure override returns (bool) {
 
     bytes4 targetSig = bytes4(transaction.data[0:4]);

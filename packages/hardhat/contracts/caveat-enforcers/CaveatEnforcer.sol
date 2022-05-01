@@ -4,5 +4,5 @@ pragma solidity ^0.8.13;
 import "../TypesAndDecoders.sol";
 
 abstract contract CaveatEnforcer {
-  function enforceCaveat (bytes calldata terms, Transaction calldata tx) virtual public returns (bool);
+  function enforceCaveat (bytes calldata terms, Transaction calldata tx, bytes32 delegationHash) virtual public returns (bool);
 }

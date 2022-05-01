@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "./TypesAndDecoders.sol";
 import "./caveat-enforcers/CaveatEnforcer.sol";
+import "hardhat/console.sol";
 
 abstract contract Delegatable is EIP712Decoder {
 
@@ -66,7 +67,7 @@ abstract contract Delegatable is EIP712Decoder {
         // As well as some extra terms that are used to parameterize the enforcer.
         for (uint16 y = 0; y < delegation.caveats.length; y++) {
           CaveatEnforcer enforcer = CaveatEnforcer(delegation.caveats[y].enforcer);
-          bool caveatSuccess = enforcer.enforceCaveat(delegation.caveats[y].terms, invocation.transaction);
+          bool caveatSuccess = enforcer.enforceCaveat(delegation.caveats[y].terms, invocation.transaction, delegationHash);
           require(caveatSuccess, "Caveat rejected");
         }
 
@@ -94,6 +95,7 @@ abstract contract Delegatable is EIP712Decoder {
   function enforceReplayProtection (address intendedSender, ReplayProtection memory protection) private {
     uint queue = protection.queue;
     uint nonce = protection.nonce;
+    console.log("Sender %s is trying to use queue %s with nonce %s", intendedSender, queue, nonce);
     require(nonce == (multiNonce[intendedSender][queue]+1), "One-at-a-time order enforced. Nonce2 is too small");
     multiNonce[intendedSender][queue] = nonce;
   }
