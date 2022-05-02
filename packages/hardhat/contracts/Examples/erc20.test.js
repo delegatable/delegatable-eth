@@ -96,6 +96,262 @@ describe.only(CONTRACT_NAME, function () {
     expect(await yourContract.balanceOf(addr2.address)).to.equal(amountToSend);
   });
 
+  it('basic delegated send within allowance works', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    const amountToSend = '10';
+
+    // Deploy
+    const YourContract = await ethers.getContractFactory(CONTRACT_NAME);
+    const yourContract = await YourContract.deploy(CONTRACT_NAME, 'TST', '100');
+    await yourContract.deployed();
+
+    // Deploy caveat
+    const ALLOWANCE = 'ERC20Allowance';
+    const AllowanceEnforcer = await ethers.getContractFactory(ALLOWANCE);
+    const allowanceEnforcer = await AllowanceEnforcer.deploy();
+    await yourContract.deployed();
+
+    // Delegate
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [{
+        enforcer: allowanceEnforcer.address,
+        terms: '0xF000000000000000000000000000000000000000000000000000000000000001',
+      }],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegate signs the invocation message:
+    const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
+    const delegatePrivateKey = fromHexString(account1PrivKey);
+    const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
+    const signedInvocation = {
+      signature: invocationSig,
+      invocations: invocationMessage,
+    }
+
+    // A third party can submit the invocation method to the chain:
+    const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+
+    // Verify the change was made:
+    expect(await yourContract.balanceOf(addr2.address)).to.equal(amountToSend);
+  });
+
+
+  it('basic delegated send exceeding allowance fails', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    const amountToSend = '10';
+
+    // Deploy
+    const YourContract = await ethers.getContractFactory(CONTRACT_NAME);
+    const yourContract = await YourContract.deploy(CONTRACT_NAME, 'TST', '100');
+    await yourContract.deployed();
+
+    // Deploy caveat
+    const ALLOWANCE = 'ERC20Allowance';
+    const AllowanceEnforcer = await ethers.getContractFactory(ALLOWANCE);
+    const allowanceEnforcer = await AllowanceEnforcer.deploy();
+    await yourContract.deployed();
+
+    // Delegate
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [{
+        enforcer: allowanceEnforcer.address,
+        terms: '0x0000000000000000000000000000000000000000000000000000000000000001',
+      }],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegate signs the invocation message:
+    const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
+    const delegatePrivateKey = fromHexString(account1PrivKey);
+    const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
+    const signedInvocation = {
+      signature: invocationSig,
+      invocations: invocationMessage,
+    }
+
+    // A third party can submit the invocation method to the chain:
+    try {
+      const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+    } catch (err) {
+      expect(err.message).to.include('Allowance exceeded');
+    }
+  });
+
+  it('multiple delegated sends exceeding allowance fails', async () => {
+    const [owner, addr1, addr2] = await ethers.getSigners();
+    const amountToSend = '10';
+
+    // Deploy
+    const YourContract = await ethers.getContractFactory(CONTRACT_NAME);
+    const yourContract = await YourContract.deploy(CONTRACT_NAME, 'TST', '100');
+    await yourContract.deployed();
+
+    // Deploy caveat
+    const ALLOWANCE = 'ERC20Allowance';
+    const AllowanceEnforcer = await ethers.getContractFactory(ALLOWANCE);
+    const allowanceEnforcer = await AllowanceEnforcer.deploy();
+    await yourContract.deployed();
+
+    // Delegate
+    // Prepare the delegation message:
+    // This message has no caveats, and authority 0,
+    // so it is a simple delegation to addr1 with no restrictions,
+    // and will allow the delegate to perform any action the signer could perform on this contract.
+    const delegation = {
+      delegate: addr1.address,
+      authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      caveats: [{
+        enforcer: allowanceEnforcer.address,
+        terms: '0x00000000000000000000000000000000000000000000000000000000000000a0', // Hex for 10
+      }],
+    };
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
+
+    // Owner signs the delegation:
+    const privateKey = fromHexString(ownerHexPrivateKey);
+    const signature = sigUtil.signTypedData_v4(
+      privateKey,
+      typedMessage
+    );
+    const signedDelegation = {
+      signature,
+      delegation,
+    }
+
+    // Delegate signs the invocation message:
+    const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
+    const delegatePrivateKey = fromHexString(account1PrivKey);
+    const invocationMessage = {
+      replayProtection: {
+        nonce: '0x01',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
+    const invocationSig = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage
+    );
+    const signedInvocation = {
+      signature: invocationSig,
+      invocations: invocationMessage,
+    }
+
+    // First try should succeed
+    const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+
+    // Delegate signs the second invocation message:
+    const desiredTx2 = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
+    const invocationMessage2 = {
+      replayProtection: {
+        nonce: '0x02',
+        queue: '0x00',
+      },
+      batch: [{
+        authority: [signedDelegation],
+        transaction: {
+          to: yourContract.address,
+          gasLimit: '10000000000000000',
+          data: desiredTx.data,
+        },
+      }],
+    };
+    const typedInvocationMessage2 = createTypedMessage(yourContract, invocationMessage2, 'Invocations', CONTRACT_NAME);
+    const invocationSig2 = sigUtil.signTypedData_v4(
+      delegatePrivateKey,
+      typedInvocationMessage2
+    );
+    const signedInvocation2 = {
+      signature: invocationSig2,
+      invocations: invocationMessage2,
+    }
+
+    // A third party can submit the invocation method to the chain:
+    try {
+      const res = await yourContract.connect(addr2).invoke([signedInvocation2]);
+    } catch (err) {
+      expect(err.message).to.include('Allowance exceeded');
+    }
+  });
 });
 
 function fromHexString (hexString) {
