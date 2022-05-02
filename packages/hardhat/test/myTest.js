@@ -2,6 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const friendlyTypes = require('../types');
 const BigNumber = ethers.BigNumber;
+const createTypedMessage = require('../scripts/createTypedMessage');
 const sigUtil = require('eth-sig-util');
 const {
   TypedDataUtils,
@@ -20,6 +21,7 @@ const account1PrivKey = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603
 const account2PrivKey = '5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a';
 
 require('../contracts/caveat-enforcers/index.test.js');
+require('../contracts/examples/erc20.test.js');
 
 describe(CONTRACT_NAME, function () {
 
@@ -59,7 +61,7 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
     const privateKey = fromHexString(ownerHexPrivateKey);
@@ -89,7 +91,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
     const invocationSig = sigUtil.signTypedData_v4(
       delegatePrivateKey,
       typedInvocationMessage
@@ -126,7 +128,7 @@ describe(CONTRACT_NAME, function () {
       caveats: [],
     };
     const primaryType = 'Delegation';
-    const typedMessage = createTypedMessage(yourContract, delegation, primaryType);
+    const typedMessage = createTypedMessage(yourContract, delegation, primaryType, CONTRACT_NAME);
 
     // Owner signs the delegation:
     const privateKey = fromHexString(ownerHexPrivateKey);
@@ -146,7 +148,7 @@ describe(CONTRACT_NAME, function () {
       authority: delegationHash,
       caveats: [],
     };
-    const typedMessage2 = createTypedMessage(yourContract, delegation2, 'Delegation');
+    const typedMessage2 = createTypedMessage(yourContract, delegation2, 'Delegation', CONTRACT_NAME);
 
     const privateKey2 = fromHexString(account1PrivKey);
     const signature2 = sigUtil.signTypedData_v4(
@@ -175,7 +177,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
     const invocationSig = sigUtil.signTypedData_v4(
       delegatePrivateKey,
       typedInvocationMessage
@@ -210,7 +212,7 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
     const privateKey = fromHexString(ownerHexPrivateKey);
@@ -244,7 +246,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
     const invocationSig = sigUtil.signTypedData_v4(
       delegatePrivateKey,
       typedInvocationMessage
@@ -280,7 +282,7 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
     const privateKey = fromHexString(ownerHexPrivateKey);
@@ -329,7 +331,7 @@ describe(CONTRACT_NAME, function () {
         terms: methodSig
       }],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
     const privateKey = fromHexString(ownerHexPrivateKey);
@@ -358,7 +360,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
     const invocationSig = sigUtil.signTypedData_v4(
       delegatePrivateKey,
       typedInvocationMessage
@@ -401,7 +403,7 @@ describe(CONTRACT_NAME, function () {
         terms: '0x00000000', 
       }],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation');
+    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
     const privateKey = fromHexString(ownerHexPrivateKey);
@@ -430,7 +432,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations');
+    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
     const invocationSig = sigUtil.signTypedData_v4(
       delegatePrivateKey,
       typedInvocationMessage
@@ -452,21 +454,6 @@ async function deployContract () {
   const YourContract = await ethers.getContractFactory(CONTRACT_NAME);
   const yourContract = await YourContract.deploy(CONTRACT_NAME);
   return yourContract.deployed();
-}
-
-function createTypedMessage (yourContract, message, primaryType) {
-  const chainId = yourContract.deployTransaction.chainId;
-  return { data: {
-    types,
-    primaryType,
-    domain: {
-      name: CONTRACT_NAME,
-      version: '1',
-      chainId,
-      verifyingContract: yourContract.address,
-    },
-    message,
-  }};
 }
 
 function fromHexString (hexString) {
