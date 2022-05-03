@@ -59,7 +59,6 @@ abstract contract Delegatable is EIP712Decoder {
         // TODO: maybe delegations should have replay protection, at least a nonce (non order dependent),
         // otherwise once it's revoked, you can't give the exact same permission again.
         bytes32 delegationHash = GET_SIGNEDDELEGATION_PACKETHASH(signedDelegation);
-        require(!isRevoked[delegationHash], "Delegation revoked");
 
         // Each delegation can include any number of caveats.
         // A caveat is any condition that may reject a proposed transaction.
@@ -109,21 +108,6 @@ abstract contract Delegatable is EIP712Decoder {
     bytes memory full = abi.encodePacked(data, sender);
     assembly {
       success := call(gasLimit, to, 0, add(full, 0x20), mload(full), 0, 0)
-    }
-  }
-
-  // Allows any delegator to revoke any outstanding SignedDelegation,
-  // Adding it to a revoked list,
-  // invalidating any future invocations that would rely on it.
-  mapping(bytes32 => bool) isRevoked;
-  function revoke (SignedDelegation[] calldata delegations) public {
-    for (uint i = 0; i < delegations.length; i++) {
-      SignedDelegation calldata signedDelegation = delegations[i];
-      address delegationSigner = verifyDelegationSignature(signedDelegation);
-      address sender = _msgSender();
-      require(delegationSigner == sender, "Revocations must be signed by the delegator");
-      bytes32 delegationHash = keccak256(abi.encode(signedDelegation));
-      isRevoked[delegationHash] = true;
     }
   }
 
