@@ -16,6 +16,7 @@ contract ERC20Allowance is CaveatEnforcer {
     // Enforce this is an ERC20 transfer:
     bytes4 targetSig = bytes4(transaction.data[0:4]);
     bytes4 allowedSig = bytes4(0xa9059cbb);
+    require(targetSig == allowedSig, "Only transfers allowed");
 
     // Enforce the specified allowance:
     IERC20 token = IERC20(transaction.to);
