@@ -2,6 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const friendlyTypes = require('../types');
 const BigNumber = ethers.BigNumber;
+const { generateUtil } = require('eth-delegatable-utils'); 
 const createTypedMessage = require('../scripts/createTypedMessage');
 const sigUtil = require('eth-sig-util');
 const {
@@ -51,6 +52,13 @@ describe(CONTRACT_NAME, function () {
 
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+    const { chainId } = await yourContract.provider.getNetwork();
+    const contractInfo = {
+      chainId,
+      verifyingContract: yourContract.address,
+      name: CONTRACT_NAME,      
+    };
+    const util = generateUtil(contractInfo);
 
     // Prepare the delegation message:
     // This message has no caveats, and authority 0,
@@ -61,18 +69,9 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
-    const privateKey = fromHexString(ownerHexPrivateKey);
-    const signature = sigUtil.signTypedData_v4(
-      privateKey,
-      typedMessage
-    );
-    const signedDelegation = {
-      signature,
-      delegation,
-    }
+    const signedDelegation = util.signDelegation(delegation, ownerHexPrivateKey);
 
     // Delegate signs the invocation message:
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);

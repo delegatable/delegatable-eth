@@ -20,6 +20,7 @@
     "chalk": "^4.1.0",
     "dotenv": "^8.2.0",
     "eip712-codegen": "^4.0.0",
+    "eth-delegatable-utils": "^1.1.0",
     "eth-sig-util": "^3.0.1",
     "ethereum-waffle": "^3.1.1",
     "ethers": "^5.4.4",
