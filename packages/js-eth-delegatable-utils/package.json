@@ -1,0 +1,17 @@
+{
+  "name": "eth-delegatable-utils",
+  "version": "1.5.2",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@metamask/eth-sig-util": "^4.0.1"
+  },
+  "devDependencies": {
+    "tape": "^5.5.3"
+  }
+}

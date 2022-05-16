@@ -116,6 +116,13 @@ describe(CONTRACT_NAME, function () {
 
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+    const { chainId } = await yourContract.provider.getNetwork();
+    const contractInfo = {
+      chainId,
+      verifyingContract: yourContract.address,
+      name: CONTRACT_NAME,      
+    };
+    const util = generateUtil(contractInfo);
 
     // Prepare the delegation message:
     // This message has no caveats, and authority 0,
@@ -126,38 +133,18 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [],
     };
-    const primaryType = 'Delegation';
-    const typedMessage = createTypedMessage(yourContract, delegation, primaryType, CONTRACT_NAME);
 
     // Owner signs the delegation:
-    const privateKey = fromHexString(ownerHexPrivateKey);
-    const signature = sigUtil.signTypedData_v4(
-      privateKey,
-      typedMessage
-    );
-    const signedDelegation = {
-      signature,
-      delegation,
-    }
+    const signedDelegation = util.signDelegation(delegation, ownerHexPrivateKey);
+    const delegationHash = TypedDataUtils.hashStruct('SignedDelegation', signedDelegation, types, true);
 
     // First delegate signs the second delegation:
-    const delegationHash = TypedDataUtils.hashStruct('SignedDelegation', signedDelegation, types, true);
     const delegation2 = {
       delegate: addr2.address,
       authority: delegationHash,
       caveats: [],
     };
-    const typedMessage2 = createTypedMessage(yourContract, delegation2, 'Delegation', CONTRACT_NAME);
-
-    const privateKey2 = fromHexString(account1PrivKey);
-    const signature2 = sigUtil.signTypedData_v4(
-      privateKey2,
-      typedMessage2
-    );
-    const signedDelegation2 = {
-      signature: signature2,
-      delegation: delegation2,
-    }
+    const signedDelegation2 = util.signDelegation(delegation2, account1PrivKey);
 
     // Second delegate signs the invocation message:
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
@@ -201,6 +188,13 @@ describe(CONTRACT_NAME, function () {
 
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+    const { chainId } = await yourContract.provider.getNetwork();
+    const contractInfo = {
+      chainId,
+      verifyingContract: yourContract.address,
+      name: CONTRACT_NAME,      
+    };
+    const util = generateUtil(contractInfo);
 
     const AllowListEnforcer = await ethers.getContractFactory('AllowedMethodsEnforcer');
     const allowListEnforcer = await AllowListEnforcer.deploy();
@@ -220,18 +214,9 @@ describe(CONTRACT_NAME, function () {
         terms: methodSig
       }],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
-    const privateKey = fromHexString(ownerHexPrivateKey);
-    const signature = sigUtil.signTypedData_v4(
-      privateKey,
-      typedMessage
-    );
-    const signedDelegation = {
-      signature,
-      delegation,
-    }
+    const signedDelegation = util.signDelegation(delegation, ownerHexPrivateKey);
 
     // Delegate signs the invocation message:
     const delegatePrivateKey = fromHexString(account1PrivKey);
@@ -274,6 +259,13 @@ describe(CONTRACT_NAME, function () {
 
     const targetString = 'A totally DELEGATED purpose!'
     const yourContract = await deployContract();
+    const { chainId } = await yourContract.provider.getNetwork();
+    const contractInfo = {
+      chainId,
+      verifyingContract: yourContract.address,
+      name: CONTRACT_NAME,      
+    };
+    const util = generateUtil(contractInfo);
 
     const AllowListEnforcer = await ethers.getContractFactory('AllowedMethodsEnforcer');
     const allowListEnforcer = await AllowListEnforcer.deploy();
@@ -292,18 +284,9 @@ describe(CONTRACT_NAME, function () {
         terms: '0x00000000', 
       }],
     };
-    const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
 
     // Owner signs the delegation:
-    const privateKey = fromHexString(ownerHexPrivateKey);
-    const signature = sigUtil.signTypedData_v4(
-      privateKey,
-      typedMessage
-    );
-    const signedDelegation = {
-      signature,
-      delegation,
-    }
+    const signedDelegation = util.signDelegation(delegation, ownerHexPrivateKey);
 
     // Delegate signs the invocation message:
     const delegatePrivateKey = fromHexString(account1PrivKey);
