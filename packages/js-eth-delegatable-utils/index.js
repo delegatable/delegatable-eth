@@ -8,6 +8,7 @@ const {
 const { abi } = require('./artifacts');
 const typedMessage = require('./types');
 const CONTRACT_NAME = 'PhisherRegistry';
+import { ethers } from "ethers";
 
 // Util curries contract info into a reusable utility
 exports.generateUtil = function generateUtil (contractInfo) {
@@ -133,6 +134,81 @@ exports.recoverRevocationSignature = function recoverRevocationSignature (signed
   return signer;
 }
 
+exports.validateInvitation = function validateInvitation (invitation) {
+  if (!invitation) {
+    throw new Error('Invitation is required');
+  }
+
+  const { signedDelegations, key } = invitation;
+  const wallet = new ethers.Wallet(key);
+
+  // Trying to follow the code from Delegatable.sol as closely as possible here
+  // To ensure readable correctness.
+  let intendedSender = ROOT_AUTHORITY;
+  let canGrant = intendedSender.toLowerCase();
+  let authHash;
+
+  for (let d = 0; d < signedDelegations.length; d++) {
+    const signedDelegation = signedDelegations[d];
+    const delegationSigner = recoverDelegationSigner(signedDelegation, {
+      chainId,
+      verifyingContract: address,
+      name: CONTRACT_NAME,
+    }).toLowerCase();
+
+    if (d === 0) {
+      intendedSender = delegationSigner;
+      canGrant = intendedSender.toLowerCase();
+    }
+
+    const delegation = signedDelegation.delegation;
+    if (delegationSigner !== canGrant) {
+      throw new Error(`Delegation signer ${delegationSigner} does not match required signer ${canGrant}`);
+    }
+
+    const delegationHash = util.createSignedDelegationHash(signedDelegation);
+
+    // Skipping caveat evaluation for now
+
+    authHash = delegationHash;
+    canGrant = delegation.delegate.toLowerCase();
+  }
+
+  // TODO: Also verify the final canGrant equals the key address.
+  // Not adding yet b/c I want it well tested when I add it.
+
+  return !!invitation;
+}
+
+exports.signDelegation = function signDelegation (utilOpts = {}) {
+  const { chainId, verifyingAddress, name } = utilOpts;
+
+  const util = generateUtil(utilOpts)
+  const delegate = ethers.Wallet.createRandom();
+
+  // Prepare the delegation message.
+  // This contract is also a revocation enforcer, so it can be used for caveats:
+  const delegation = {
+    delegate: delegate.address,
+    authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    caveats: [{
+      enforcer: registry.address,
+      terms: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    }],
+  };
+
+  const typedMessage = createTypedMessage(registry, delegation, 'Delegation', name, _chainId);
+
+  // Owner signs the delegation:
+  const signedDelegation = util.signDelegation(delegation, signer.privateKey);
+  const invitation = {
+    v:1,
+    signedDelegations: [signedDelegation],
+    key: delegate.privateKey,
+  }
+  return invitation;
+}
+
 function fromHexString (hexString) {
   if (!hexString || typeof hexString !== 'string') {
     throw new Error('Expected a hex string.');
@@ -147,3 +223,4 @@ function fromHexString (hexString) {
   }
   return new Uint8Array(mapped);
 }
+
