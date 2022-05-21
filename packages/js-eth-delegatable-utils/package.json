@@ -9,7 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@metamask/eth-sig-util": "^4.0.1"
+    "@metamask/eth-sig-util": "^4.0.1",
+    "@noble/hashes": "^1.0.0",
+    "@noble/secp256k1": "^1.5.5"
   },
   "devDependencies": {
     "tape": "^5.5.3"

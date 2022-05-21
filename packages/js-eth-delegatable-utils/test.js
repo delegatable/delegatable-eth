@@ -1,7 +1,6 @@
 const test = require('tape');
 const { recoverSigner, signDelegation } = require('./index.js');
 const sigUtil = require('@metamask/eth-sig-util');
-console.dir(recoverSigner);
 
 const address = '0xa2c5B479d1758C48c68540F554cDAeDda2340630';
 const PRIV_KEY = 'acc9d5cfcfa55e0e333e7eeed12ef4157627ec7de87ab7944ed97fcd481d8b51';
@@ -151,7 +150,8 @@ test('recover a signature', async (t) => {
 
   // exports.signDelegation = async function signDelegation (delegation, privateKey, contractInfo) {
   // const { chainId, verifyingContract, name } = contractInfo;
-  const signedDelegation = signDelegation(TYPED_MESSAGE.data.message, PRIV_KEY, contractInfo);
+  console.log('test file calling signDelegation with', TYPED_MESSAGE.data.domain);
+  const signedDelegation = signDelegation(contractInfo, PRIV_KEY);
 
   const recovered = recoverSigner(signedDelegation, {
     chainId: 1337,

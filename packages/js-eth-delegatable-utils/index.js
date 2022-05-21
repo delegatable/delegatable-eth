@@ -8,7 +8,10 @@ const {
 const { abi } = require('./artifacts');
 const typedMessage = require('./types');
 const CONTRACT_NAME = 'PhisherRegistry';
-import { ethers } from "ethers";
+const secp = require('@noble/secp256k1');
+const {
+  keccak_256,
+} = require('@noble/hashes/sha3');
 
 // Util curries contract info into a reusable utility
 exports.generateUtil = function generateUtil (contractInfo) {
@@ -26,8 +29,6 @@ exports.generateUtil = function generateUtil (contractInfo) {
     recoverRevocationSignature: (signedRevocation) => exports.recoverRevocationSignature(signedRevocation, contractInfo),
   }
 }
-
-exports.recoverSigner = exports.recoverDelegationSigner;
 
 exports.createSignedDelegationHash = function createDelegationHash (signedDelegation, contractInfo) {
   const { verifyingContract, name, chainId } = contractInfo;
@@ -49,6 +50,8 @@ exports.recoverDelegationSigner = function recoverDelegationSigner (signedDelega
   });
   return signer;
 }
+
+exports.recoverSigner = exports.recoverDelegationSigner;
 
 exports.recoverInvocationSigner = function recoverInvocationSigner (signedInvocation, contractInfo) {
   const { chainId, verifyingContract, name } = contractInfo;
@@ -134,13 +137,14 @@ exports.recoverRevocationSignature = function recoverRevocationSignature (signed
   return signer;
 }
 
-exports.validateInvitation = function validateInvitation (invitation) {
+exports.validateInvitation = function validateInvitation (contractInfo, invitation) {
+  const { chainId, verifyingContract, name } = contractInfo;
+
   if (!invitation) {
     throw new Error('Invitation is required');
   }
 
   const { signedDelegations, key } = invitation;
-  const wallet = new ethers.Wallet(key);
 
   // Trying to follow the code from Delegatable.sol as closely as possible here
   // To ensure readable correctness.
@@ -152,7 +156,7 @@ exports.validateInvitation = function validateInvitation (invitation) {
     const signedDelegation = signedDelegations[d];
     const delegationSigner = recoverDelegationSigner(signedDelegation, {
       chainId,
-      verifyingContract: address,
+      verifyingContract,
       name: CONTRACT_NAME,
     }).toLowerCase();
 
@@ -180,36 +184,143 @@ exports.validateInvitation = function validateInvitation (invitation) {
   return !!invitation;
 }
 
-exports.signDelegation = function signDelegation (utilOpts = {}) {
-  const { chainId, verifyingAddress, name } = utilOpts;
+/* Allows a user to create a new invitation, which can be used to grant
+ * that user's own permissions to the recipient.
+ */
+exports.signDelegation = function signDelegation (contractInfo = {}, privateKey) {
+  console.log('called signDelegation with ', contractInfo);
+  const { chainId, verifyingContract, name } = contractInfo;
 
-  const util = generateUtil(utilOpts)
-  const delegate = ethers.Wallet.createRandom();
+  const util = exports.generateUtil(contractInfo)
+  const delegate = secp.utils.randomPrivateKey();
+  console.log('delegate', delegate);
+  const delegatePubKey = secp.getPublicKey(delegate);
+  const delegatePubKeyHash = keccak_256(delegatePubKey, 32);
+  console.dir({ delegatePubKeyHash })
+  const delegateAddress = exports.toHexString(delegatePubKeyHash.subarray(24));
+  console.log('full length address', delegateAddress);
+
 
   // Prepare the delegation message.
   // This contract is also a revocation enforcer, so it can be used for caveats:
+  console.log('delegate address', delegateAddress)
   const delegation = {
-    delegate: delegate.address,
+    delegate: exports.toHexString(delegateAddress),
     authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
     caveats: [{
-      enforcer: registry.address,
+      enforcer: verifyingContract,
       terms: '0x0000000000000000000000000000000000000000000000000000000000000000',
     }],
   };
 
-  const typedMessage = createTypedMessage(registry, delegation, 'Delegation', name, _chainId);
+  const typedMessage = createTypedMessage(verifyingContract, delegation, 'Delegation', name, chainId);
+  console.log('HERE WE GO', typedMessage.data);
+  const signature = sigUtil.signTypedData({
+    privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
+    data: typedMessage.data,
+    version: 'V4',
+  });
+  const signedDelegation = {
+    signature,
+    delegation,
+  }
 
-  // Owner signs the delegation:
-  const signedDelegation = util.signDelegation(delegation, signer.privateKey);
   const invitation = {
     v:1,
     signedDelegations: [signedDelegation],
-    key: delegate.privateKey,
+    key: delegate.toString('hex'),
   }
   return invitation;
 }
 
-function fromHexString (hexString) {
+/* Allows a user to create a new invitation, which creates a
+ * delegated delegation to another user.
+ */
+exports.createInvitation = function createInvitation (contractInfo, recipientAddress, invitation) {
+  const { chainId, verifyingContract, name } = contractInfo;
+  const { signedDelegations, key } = invitation;
+
+  const signedDelegation = signedDelegations[signedDelegations.length - 1];
+  const delegationHash = util.createSignedDelegationHash(signedDelegation);
+  const hexHash = '0x' + delegationHash.toString('hex');
+
+  let delegateAddress, delegate;
+  if (!recipientAddress) {
+    delegate = secp.utils.randomPrivateKey();
+    delegateAddress = secp.getPublicKey(delegate);
+  } else {
+   delegateAddress = recipientAddress; 
+  }
+
+  const delegation = {
+    delegate: delegateAddress,
+    authority: hexHash,
+
+    // Revokable by default:
+    caveats: [{
+      enforcer: verifyingContract,
+      terms: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    }]
+  }
+
+  const newSignedDelegation = exports.signDelegation(delegation, key, {
+    chainId,
+    verifyingContract: verifyingContract,
+    name: CONTRACT_NAME,
+  }, key);
+  const newInvite = {
+    signedDelegations: [...signedDelegations, newSignedDelegation],
+  }
+
+  // If a recipient was specified, we just attach the intended address.
+  // If no recipient was specified, we include the delegate key.
+  if (key) {
+    newInvite.key = key.toString('hex');
+  } else {
+    newInvite.address = delegateAddress;
+  }
+  return newInvite;
+}
+
+/* This is designed to be a particularly convenient method for interacting with delegations.
+ * It creates an object that can be used to sign a delegation, or revoke a delegation.
+ */
+exports.createMembership = function createMembership (contractInfo, power) {
+  let { invitation, key } = power;
+  if (!invitation && !key) {
+    throw new Error('Either an invitation or a key is required.');
+  }
+  if (!key) {
+    key = invitation.key;
+  }
+
+  return {
+    createInvitation (recipientAddress) {
+      if (invitation) {
+        return createInvitation(contractInfo, recipientAddress, invitation);
+      } else {
+        return signDelegation(contractInfo, key);
+      }
+    },
+
+    signInvocation (desiredTx) {
+      return exports.signInvocation(desiredTx, key, contractInfo);
+    },
+
+    signRevocationMessage (signedInvitation) {
+      const { signedDelegations } = signedInvitation;
+      const lastDelegation = signedDelegations[signedDelegations.length - 1];
+
+      // Owner revokes outstanding delegation
+      const intentionToRevoke = {
+        delegationHash: TypedDataUtils.hashStruct('SignedDelegation', lastDelegation, types, true)
+      }
+      return util.signRevocation(intentionToRevoke, key);
+    }
+  }
+}
+
+exports.fromHexString = function fromHexString (hexString) {
   if (!hexString || typeof hexString !== 'string') {
     throw new Error('Expected a hex string.');
   }
@@ -224,3 +335,6 @@ function fromHexString (hexString) {
   return new Uint8Array(mapped);
 }
 
+exports.toHexString = function toHexString (buffer) {
+  return [...buffer].map(x => x.toString(16).padStart(2, '0')).join('');
+}
