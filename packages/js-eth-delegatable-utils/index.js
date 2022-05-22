@@ -188,22 +188,16 @@ exports.validateInvitation = function validateInvitation (contractInfo, invitati
  * that user's own permissions to the recipient.
  */
 exports.signDelegation = function signDelegation (contractInfo = {}, privateKey) {
-  console.log('called signDelegation with ', contractInfo);
   const { chainId, verifyingContract, name } = contractInfo;
 
   const util = exports.generateUtil(contractInfo)
   const delegate = secp.utils.randomPrivateKey();
-  console.log('delegate', delegate);
   const delegatePubKey = secp.getPublicKey(delegate);
   const delegatePubKeyHash = keccak_256(delegatePubKey, 32);
-  console.dir({ delegatePubKeyHash })
   const delegateAddress = exports.toHexString(delegatePubKeyHash.subarray(24));
-  console.log('full length address', delegateAddress);
-
 
   // Prepare the delegation message.
   // This contract is also a revocation enforcer, so it can be used for caveats:
-  console.log('delegate address', delegateAddress)
   const delegation = {
     delegate: exports.toHexString(delegateAddress),
     authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -214,7 +208,6 @@ exports.signDelegation = function signDelegation (contractInfo = {}, privateKey)
   };
 
   const typedMessage = createTypedMessage(verifyingContract, delegation, 'Delegation', name, chainId);
-  console.log('HERE WE GO', typedMessage.data);
   const signature = sigUtil.signTypedData({
     privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
     data: typedMessage.data,
@@ -224,13 +217,7 @@ exports.signDelegation = function signDelegation (contractInfo = {}, privateKey)
     signature,
     delegation,
   }
-
-  const invitation = {
-    v:1,
-    signedDelegations: [signedDelegation],
-    key: delegate.toString('hex'),
-  }
-  return invitation;
+  return signedDelegation;
 }
 
 /* Allows a user to create a new invitation, which creates a

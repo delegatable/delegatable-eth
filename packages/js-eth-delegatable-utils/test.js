@@ -150,7 +150,6 @@ test('recover a signature', async (t) => {
 
   // exports.signDelegation = async function signDelegation (delegation, privateKey, contractInfo) {
   // const { chainId, verifyingContract, name } = contractInfo;
-  console.log('test file calling signDelegation with', TYPED_MESSAGE.data.domain);
   const signedDelegation = signDelegation(contractInfo, PRIV_KEY);
 
   const recovered = recoverSigner(signedDelegation, {
