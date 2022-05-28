@@ -248,7 +248,7 @@ describe(CONTRACT_NAME, function () {
     }
   });
 
-  it.only('multiple delegated sends exceeding allowance fails', async () => {
+  it('multiple delegated sends exceeding allowance fails', async () => {
     const [owner, addr1, addr2] = await ethers.getSigners();
     const amountToSend = '10';
 
