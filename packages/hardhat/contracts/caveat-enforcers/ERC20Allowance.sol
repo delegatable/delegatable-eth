@@ -5,7 +5,7 @@ import "../Delegatable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ERC20Allowance is CaveatEnforcer {
-  mapping(address => mapping(bytes32 => uint256)) allowances;
+  mapping(address => mapping(bytes32 => uint256)) spentMap;
 
   function enforceCaveat(
     bytes calldata terms,
@@ -18,14 +18,12 @@ contract ERC20Allowance is CaveatEnforcer {
     bytes4 allowedSig = bytes4(0xa9059cbb);
     require(targetSig == allowedSig, "Only transfers allowed");
 
-    // Enforce the specified allowance:
-    IERC20 token = IERC20(transaction.to);
-
     uint limit = bytesToUint(terms);
-    uint spent = allowances[msg.sender][delegationHash];
+    uint256 sending = bytesToUint(transaction.data[36:68]);
+    spentMap[msg.sender][delegationHash] += sending;
+    uint spent = spentMap[msg.sender][delegationHash];
 
-    require(spent < limit, "Allowance exceeded");
-    allowances[msg.sender][delegationHash]++;
+    require(spent <= limit, "Allowance exceeded");
     return true;
   }
 

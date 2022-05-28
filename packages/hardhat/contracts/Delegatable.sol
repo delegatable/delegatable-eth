@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import "./TypesAndDecoders.sol";
 import "./caveat-enforcers/CaveatEnforcer.sol";
-import "hardhat/console.sol";
 
 abstract contract Delegatable is EIP712Decoder {
 
@@ -94,7 +93,6 @@ abstract contract Delegatable is EIP712Decoder {
   function enforceReplayProtection (address intendedSender, ReplayProtection memory protection) private {
     uint queue = protection.queue;
     uint nonce = protection.nonce;
-    console.log("Sender %s is trying to use queue %s with nonce %s", intendedSender, queue, nonce);
     require(nonce == (multiNonce[intendedSender][queue]+1), "One-at-a-time order enforced. Nonce2 is too small");
     multiNonce[intendedSender][queue] = nonce;
   }

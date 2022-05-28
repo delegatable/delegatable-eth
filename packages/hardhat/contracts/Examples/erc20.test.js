@@ -248,7 +248,7 @@ describe(CONTRACT_NAME, function () {
     }
   });
 
-  it('multiple delegated sends exceeding allowance fails', async () => {
+  it.only('multiple delegated sends exceeding allowance fails', async () => {
     const [owner, addr1, addr2] = await ethers.getSigners();
     const amountToSend = '10';
 
@@ -273,7 +273,7 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [{
         enforcer: allowanceEnforcer.address,
-        terms: '0x00000000000000000000000000000000000000000000000000000000000000a0', // Hex for 10
+        terms: '0x000000000000000000000000000000000000000000000000000000000000000a', // Hex for 10
       }],
     };
     const typedMessage = createTypedMessage(yourContract, delegation, 'Delegation', CONTRACT_NAME);
@@ -290,10 +290,10 @@ describe(CONTRACT_NAME, function () {
     }
 
     // Delegate signs five messages of 2 and is permitted
+    const delegatePrivateKey = fromHexString(account1PrivKey);
     for (let i = 0; i < 5; i++) {
       // Delegate signs the invocation message:
-      const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, i * 2);
-      const delegatePrivateKey = fromHexString(account1PrivKey);
+      const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, 2);
       const invocationMessage = {
         replayProtection: {
           nonce: '0x' + (i + 1).toString(16),
@@ -308,7 +308,6 @@ describe(CONTRACT_NAME, function () {
           },
         }],
       };
-      console.log(invocationMessage.replayProtection);
       const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
       const invocationSig = sigUtil.signTypedData_v4(
         delegatePrivateKey,
@@ -319,17 +318,16 @@ describe(CONTRACT_NAME, function () {
         invocations: invocationMessage,
       }
 
-      console.log(`sending ${i * 2} to ${addr2.address}`);
       const res = await yourContract.connect(addr2).invoke([signedInvocation]);
       const balance = await yourContract.balanceOf(addr2.address);
-      expect(balance).to.equal(i * 2);
+      expect(balance).to.equal((i + 1) * 2);
     }
 
     // Delegate signs the second invocation message:
-    const desiredTx2 = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
+    const desiredTx2 = await yourContract.populateTransaction.transfer(addr2.address, 1);
     const invocationMessage2 = {
       replayProtection: {
-        nonce: '0x02',
+        nonce: '0x06',
         queue: '0x00',
       },
       batch: [{
@@ -337,7 +335,7 @@ describe(CONTRACT_NAME, function () {
         transaction: {
           to: yourContract.address,
           gasLimit: '10000000000000000',
-          data: desiredTx.data,
+          data: desiredTx2.data,
         },
       }],
     };
@@ -357,6 +355,8 @@ describe(CONTRACT_NAME, function () {
     } catch (err) {
       expect(err.message).to.include('Allowance exceeded');
     }
+    const balance = await yourContract.balanceOf(addr2.address);
+    expect(balance).to.equal(10);
   });
 });
 
