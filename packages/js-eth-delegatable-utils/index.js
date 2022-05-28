@@ -272,21 +272,26 @@ exports.createInvitation = function createInvitation (contractInfo, recipientAdd
 /* This is designed to be a particularly convenient method for interacting with delegations.
  * It creates an object that can be used to sign a delegation, or revoke a delegation.
  */
-exports.createMembership = function createMembership (contractInfo, power) {
-  let { invitation, key } = power;
+exports.createMembership = function createMembership (opts = {}) {
+  let { invitation, key, contractInfo } = opts;
   if (!invitation && !key) {
     throw new Error('Either an invitation or a key is required.');
   }
   if (!key) {
     key = invitation.key;
+
+    if (!contractInfo && invitation.contractInfo) {
+      contractInfo = invitation.contractInfo;
+    }
   }
 
   return {
     createInvitation (recipientAddress) {
-      if (invitation) {
-        return createInvitation(contractInfo, recipientAddress, invitation);
+      if (recipientAddress) {
+        return exports.createInvitation(contractInfo, recipientAddress, invitation);
       } else {
-        return signDelegation(contractInfo, key);
+        // When there is no recipient specified
+        return exports.signDelegation(contractInfo, key);
       }
     },
 

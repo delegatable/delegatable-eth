@@ -1,5 +1,5 @@
 const test = require('tape');
-const { recoverSigner, signDelegation } = require('./index.js');
+const { recoverSigner, signDelegation, createMembership } = require('./index.js');
 const sigUtil = require('@metamask/eth-sig-util');
 
 const address = '0xa2c5B479d1758C48c68540F554cDAeDda2340630';
@@ -159,6 +159,44 @@ test('recover a signature', async (t) => {
   });
 
   t.equals(recovered.toLowerCase(), address.toLowerCase(), 'address recovered');
+
+});
+
+test('membership API requires power', async (t) => {
+  const contractInfo = {
+    chainId: 1337,
+    verifyingContract: '0x336E14B1723Dc5A57769F0aa5C409F476Ee8B333',
+    name: "PhisherRegistry",
+  }
+
+  try {
+    const aliceMembership = createMembership(contractInfo);
+  } catch (err) {
+    t.equals(err.message, 'Either an invitation or a key is required.');
+  }
+});
+
+test('membership API can delegate to new key', async (t) => {
+  const contractInfo = {
+    chainId: 1337,
+    verifyingContract: '0x336E14B1723Dc5A57769F0aa5C409F476Ee8B333',
+    name: "PhisherRegistry",
+  }
+
+  const aliceMembership = createMembership({
+    contractInfo,
+    key: PRIV_KEY,
+  });
+  t.ok(aliceMembership, 'membership should be created');
+
+  const bobInvitation = aliceMembership.createInvitation();
+  console.dir(bobInvitation);
+  t.ok(bobInvitation.key);
+
+  const bobMembership = createMembership({
+    invitation: bobInvitation,
+  });
+
 
 });
 
