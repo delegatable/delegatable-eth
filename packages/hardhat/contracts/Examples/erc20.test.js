@@ -289,35 +289,41 @@ describe(CONTRACT_NAME, function () {
       delegation,
     }
 
-    // Delegate signs the invocation message:
-    const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
-    const delegatePrivateKey = fromHexString(account1PrivKey);
-    const invocationMessage = {
-      replayProtection: {
-        nonce: '0x01',
-        queue: '0x00',
-      },
-      batch: [{
-        authority: [signedDelegation],
-        transaction: {
-          to: yourContract.address,
-          gasLimit: '10000000000000000',
-          data: desiredTx.data,
+    // Delegate signs five messages of 2 and is permitted
+    for (let i = 0; i < 5; i++) {
+      // Delegate signs the invocation message:
+      const desiredTx = await yourContract.populateTransaction.transfer(addr2.address, i * 2);
+      const delegatePrivateKey = fromHexString(account1PrivKey);
+      const invocationMessage = {
+        replayProtection: {
+          nonce: '0x' + (i + 1).toString(16),
+          queue: '0x00',
         },
-      }],
-    };
-    const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
-    const invocationSig = sigUtil.signTypedData_v4(
-      delegatePrivateKey,
-      typedInvocationMessage
-    );
-    const signedInvocation = {
-      signature: invocationSig,
-      invocations: invocationMessage,
-    }
+        batch: [{
+          authority: [signedDelegation],
+          transaction: {
+            to: yourContract.address,
+            gasLimit: '10000000000000000',
+            data: desiredTx.data,
+          },
+        }],
+      };
+      console.log(invocationMessage.replayProtection);
+      const typedInvocationMessage = createTypedMessage(yourContract, invocationMessage, 'Invocations', CONTRACT_NAME);
+      const invocationSig = sigUtil.signTypedData_v4(
+        delegatePrivateKey,
+        typedInvocationMessage
+      );
+      const signedInvocation = {
+        signature: invocationSig,
+        invocations: invocationMessage,
+      }
 
-    // First try should succeed
-    const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+      console.log(`sending ${i * 2} to ${addr2.address}`);
+      const res = await yourContract.connect(addr2).invoke([signedInvocation]);
+      const balance = await yourContract.balanceOf(addr2.address);
+      expect(balance).to.equal(i * 2);
+    }
 
     // Delegate signs the second invocation message:
     const desiredTx2 = await yourContract.populateTransaction.transfer(addr2.address, amountToSend);
