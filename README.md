@@ -49,6 +49,10 @@ To use this in your own contract, follow these simple steps:
 
 ## Integration into a web frontend
 
+You can see a working web frontend at [MobyMask](https://github.com/danfinlay/MobyMask/).
+
+I've started assembling a useful utility for managing memberships & delegations in JS as `eth-delegatable-utils` ([npm](https://www.npmjs.com/package/eth-delegatable-utils), [github](https://github.com/danfinlay/delegatable-eth/tree/main/packages/js-eth-delegatable-utils))
+
 These contracts should be compatible with any signer or wallet that supports [signTypedData_v4, like MetaMask](https://docs.metamask.io/guide/signing-data.html#sign-typed-data-v4).
 
 You will be calling the `eth_signTypedData` method with the `V4` parameter, as seen in [the test files](./packages/hardhat/test/myTest.js).
