@@ -1,9 +1,10 @@
 {
   "name": "eth-delegatable-utils",
-  "version": "1.6.0",
+  "version": "2.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "npx tsc index.ts --downlevelIteration",
     "test": "node test.js"
   },
   "author": "",
@@ -14,6 +15,7 @@
     "@noble/secp256k1": "^1.5.5"
   },
   "devDependencies": {
-    "tape": "^5.5.3"
+    "tape": "^5.5.3",
+    "typescript": "^4.7.2"
   }
 }
