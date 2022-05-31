@@ -1,6 +1,6 @@
 {
   "name": "eth-delegatable-utils",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,8 @@
   "dependencies": {
     "@metamask/eth-sig-util": "^4.0.1",
     "@noble/hashes": "^1.0.0",
-    "@noble/secp256k1": "^1.5.5"
+    "@noble/secp256k1": "^1.5.5",
+    "micro-eth-signer": "^0.4.7"
   },
   "devDependencies": {
     "tape": "^5.5.3",

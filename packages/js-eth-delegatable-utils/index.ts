@@ -7,7 +7,7 @@ const {
 
 const { abi } = require('./artifacts');
 const typedMessage = require('./types');
-const CONTRACT_NAME = 'PhisherRegistry';
+const { Address } = require('micro-eth-signer');
 const secp = require('@noble/secp256k1');
 const {
   keccak_256,
@@ -109,7 +109,6 @@ type Membership = {
  * It can also be used to create invitation objects, and can be instantiated with those invitation objects.
  */
 exports.createMembership = function createMembership (opts: MembershipOpts): Membership {
-  //console.log('createMembership', ...arguments);
   let invitation, key, contractInfo;
 
   if ('invitation' in opts) {
@@ -152,16 +151,18 @@ exports.createMembership = function createMembership (opts: MembershipOpts): Mem
       }
 
       // Having an invitation means there may be signedDelegations to chain from:
-      if (invitation?.signedDelegations?.length > 0) {
-        return exports.createFirstDelegatedInvitation({ contractInfo, recipientAddress, delegation, key });
+      if (invitation?.signedDelegations?.length === 0) {
+        const newInvitation = exports.createFirstDelegatedInvitation({ contractInfo, recipientAddress, delegation, key });
+        exports.validateInvitation({ invitation: newInvitation, contractInfo });
+        return newInvitation;
       } else {
         const newInvitation = exports.createDelegatedInvitation({
           contractInfo,
-          recipientAddress: recipientAddress || delegation.delegate,
           invitation,
           delegation,
           key,
         });
+        exports.validateInvitation({ invitation: newInvitation, contractInfo });
         return newInvitation;
       }
     },
@@ -312,7 +313,6 @@ exports.recoverInvocationSigner = function recoverInvocationSigner ({ signedInvo
 
 exports.signInvocations = function signInvocations({ invocations, privateKey, contractInfo }
   : { invocations: Invocations, privateKey: string, contractInfo: ContractInfo}): SignedInvocation {
-    //console.log('signInvocations', ...arguments);
   const { chainId, verifyingContract, name } = contractInfo;
   const typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
 
@@ -331,7 +331,6 @@ exports.signInvocations = function signInvocations({ invocations, privateKey, co
 }
 
 exports.signDelegation = function signDelegation ({ delegation, key, contractInfo }): SignedDelegation {
-  //console.log('signDelegation', ...arguments);
   const { chainId, verifyingContract, name } = contractInfo;
   const typedMessage = createTypedMessage(verifyingContract, delegation, 'Delegation', name, chainId);
 
@@ -401,7 +400,7 @@ exports.validateInvitation = function validateInvitation ({ contractInfo, invita
   let intendedSender = exports.recoverDelegationSigner(signedDelegations[0], {
     chainId,
     verifyingContract,
-    name: CONTRACT_NAME,
+    name,
   }).toLowerCase();
   let canGrant = intendedSender.toLowerCase();
   let authHash;
@@ -411,7 +410,7 @@ exports.validateInvitation = function validateInvitation ({ contractInfo, invita
     const delegationSigner = exports.recoverDelegationSigner(signedDelegation, {
       chainId,
       verifyingContract,
-      name: CONTRACT_NAME,
+      name,
     }).toLowerCase();
 
     if (d === 0) {
@@ -421,7 +420,7 @@ exports.validateInvitation = function validateInvitation ({ contractInfo, invita
 
     const delegation = signedDelegation.delegation;
     if (delegationSigner !== canGrant) {
-      throw new Error(`Delegation signer ${delegationSigner} does not match required signer ${canGrant}`);
+      throw new Error(`Delegation signer ${delegationSigner} of delegation ${d} does not match required signer ${canGrant}`);
     }
 
     const delegationHash = exports.createSignedDelegationHash(signedDelegation);
@@ -489,8 +488,7 @@ exports.createInvitation = function createInvitation (opts: {
 exports.createDelegatedInvitation = function createDelegatedInvitation({
   contractInfo, recipientAddress, invitation, delegation, key
 }): Invitation {
-  //console.log('createDelegatedInvitation', ...arguments);
-  const { chainId, verifyingContract, name } = contractInfo;
+  const { verifyingContract } = contractInfo;
   const { signedDelegations } = invitation;
   const delegatorKey = key || invitation.key;
 
@@ -498,12 +496,16 @@ exports.createDelegatedInvitation = function createDelegatedInvitation({
   const delegationHash = exports.createSignedDelegationHash(signedDelegation);
   const hexHash = '0x' + delegationHash.toString('hex');
 
+  if (delegation && delegation.delegate) { 
+    recipientAddress = delegation.delegate;
+  }
+
   let delegate: Account;
   if (!recipientAddress) {
-    const delegate = exports.generateAccount();
+    delegate = exports.generateAccount();
   } else {
     delegate = {
-      address: recipientAddress
+      address: recipientAddress || delegation.delegate
     }
   }
 
@@ -520,11 +522,16 @@ exports.createDelegatedInvitation = function createDelegatedInvitation({
     }
   }
 
+  if (!delegation.authority) {
+    delegation.authority = hexHash;
+  }
+
   const newSignedDelegation = exports.signDelegation({
     key: delegatorKey,
     contractInfo,
     delegation,
   });
+
   const newInvite: Invitation = {
     signedDelegations: [...signedDelegations, newSignedDelegation],
     key: delegate?.key || undefined,
@@ -541,7 +548,6 @@ exports.createDelegatedInvitation = function createDelegatedInvitation({
 exports.createFirstDelegatedInvitation = function createFirstDelegatedInvitation({
   contractInfo, recipientAddress, key, delegation
 }): Invitation {
-  //console.log('createFirstDelegatedInvitation', ...arguments);
   const { verifyingContract } = contractInfo;
 
   let delegate: Account;
@@ -606,21 +612,14 @@ type Account = {
 
 exports.generateAccount = function generateAccount (): Account {
   const privKey = secp.utils.randomPrivateKey();
-  const pubKey = secp.getPublicKey(privKey);
-  const pubKeyHash = keccak_256(pubKey, 32); // 32 bytes
-  const subarray = pubKeyHash.subarray(32 - 20) // cuts from the 24th byte on
-  const address = exports.toHexString(subarray);
+  const address = exports.addressForKey(privKey);
   return {
-    address: '0x' + address,
+    address,
     key: exports.toHexString(privKey),
   }
 }
 
-function addressForKey (key: string): string {
-  const privKey = exports.fromHexString(key);
-  const pubKey = secp.getPublicKey(privKey);
-  const pubKeyHash = keccak_256(pubKey, 32); // 32 bytes
-  const subarray = pubKeyHash.subarray(32 - 20) // cuts from the 24th byte on
-  const address = exports.toHexString(subarray);
-  return '0x' + address;
+exports.addressForKey = function addressForKey (key: string): string {
+  const addr = Address.fromPrivateKey(key);
+  return addr;
 }

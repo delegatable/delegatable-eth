@@ -113,7 +113,7 @@ describe(CONTRACT_NAME, function () {
   })
   */
 
-  it.only('delegates can delegate', async () => {
+  it('delegates can delegate', async () => {
     const [owner, addr1, addr2, addr3] = await ethers.getSigners();
     console.log(`owner: ${owner.address}`);
     console.log(`addr1: ${addr1.address}`);
@@ -151,7 +151,6 @@ describe(CONTRACT_NAME, function () {
       key: account1PrivKey,
       contractInfo,
     });
-    console.log('account 1 membership created');
 
     // First delegate signs the second delegation:
     const delegation2 = {
@@ -159,21 +158,17 @@ describe(CONTRACT_NAME, function () {
       // Absent authority will auto generate from the invitation that initialized this membership.
       caveats: [],
     };
-    console.log('generating account 2 invitation');
     const account2Invitation = account1Membership.createInvitation({
       delegation: delegation2,
     });
-    console.log('account 2 invitation', account2Invitation);
     const account2Membership = createMembership({
       invitation: account2Invitation,
       key: account2PrivKey,
       contractInfo,
     });
-    console.log('account2 membership created', account2Membership);
 
     // Third delegation is to a generated invite (no key in advance):
     const account3Invitation = account2Membership.createInvitation();
-    console.log('account3 invitation', JSON.stringify(account3Invitation, null, 2))
     expect(validateInvitation({
       invitation: account3Invitation,
       contractInfo,
@@ -185,7 +180,6 @@ describe(CONTRACT_NAME, function () {
 
     // Second delegate signs the invocation message:
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
-    console.log('desiredTx is ', desiredTx);
     const invocationMessage = {
       replayProtection: {
         nonce: '0x01',
