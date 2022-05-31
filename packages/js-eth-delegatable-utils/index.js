@@ -37,31 +37,44 @@ var keccak_256 = require('@noble/hashes/sha3').keccak_256;
  * It can also be used to create invitation objects, and can be instantiated with those invitation objects.
  */
 exports.createMembership = function createMembership(opts) {
-    if (opts === void 0) { opts = {}; }
-    var invitation = opts.invitation, key = opts.key, contractInfo = opts.contractInfo;
+    //console.log('createMembership', ...arguments);
+    var invitation, key, contractInfo;
+    if ('invitation' in opts) {
+        invitation = opts.invitation;
+    }
+    if ('key' in opts) {
+        key = opts.key;
+    }
+    if ('contractInfo' in opts) {
+        contractInfo = opts.contractInfo;
+    }
     if (!invitation && !key) {
         throw new Error('Either an invitation or a key is required to initialize membership.');
     }
-    if (!key) {
+    if (!key && invitation) {
         key = invitation.key;
         if (!contractInfo && invitation.contractInfo) {
             contractInfo = invitation.contractInfo;
         }
+    }
+    if (invitation) {
+        exports.validateInvitation({ invitation: invitation, contractInfo: contractInfo });
     }
     if (!contractInfo || !contractInfo.verifyingContract) {
         throw new Error('Contract info must be provided to initialize membership.');
     }
     return {
         createInvitation: function (_a) {
-            var recipientAddress = _a.recipientAddress, delegation = _a.delegation;
-            if (invitation) {
-                if (!('authority' in delegation)) {
-                    var signedDelegations = invitation.signedDelegations;
-                    var lastSignedDelegation = signedDelegations[signedDelegations.length - 1];
-                    var delegationHash = exports.createSignedDelegationHash(lastSignedDelegation);
-                    var hexHash = '0x' + delegationHash.toString('hex');
-                    delegation.authority = hexHash;
-                }
+            var _b;
+            var _c = _a === void 0 ? {} : _a, recipientAddress = _c.recipientAddress, delegation = _c.delegation;
+            if (!invitation) {
+                return exports.createFirstDelegatedInvitation({ contractInfo: contractInfo, recipientAddress: recipientAddress, delegation: delegation, key: key });
+            }
+            // Having an invitation means there may be signedDelegations to chain from:
+            if (((_b = invitation === null || invitation === void 0 ? void 0 : invitation.signedDelegations) === null || _b === void 0 ? void 0 : _b.length) > 0) {
+                return exports.createFirstDelegatedInvitation({ contractInfo: contractInfo, recipientAddress: recipientAddress, delegation: delegation, key: key });
+            }
+            else {
                 var newInvitation = exports.createDelegatedInvitation({
                     contractInfo: contractInfo,
                     recipientAddress: recipientAddress || delegation.delegate,
@@ -71,10 +84,6 @@ exports.createMembership = function createMembership(opts) {
                 });
                 return newInvitation;
             }
-            if (!('authority' in delegation)) {
-                delegation.authority = '0x0000000000000000000000000000000000000000';
-            }
-            return exports.createFirstDelegatedInvitation({ contractInfo: contractInfo, recipientAddress: recipientAddress, delegation: delegation, key: key });
         },
         createMembershipFromDelegation: function (delegation) {
             if (invitation) {
@@ -133,8 +142,10 @@ exports.createMembership = function createMembership(opts) {
         },
         signInvocations: function (invocations) {
             invocations.batch.forEach(function (invocation) {
-                if (invitation) {
-                    invocation.authority = invitation.signedDelegations;
+                if (invitation && invitation.signedDelegations && invitation.signedDelegations.length > 0) {
+                    if (!('authority' in invocation)) {
+                        invocation.authority = invitation.signedDelegations;
+                    }
                 }
                 else {
                     invocation.authority = [];
@@ -200,6 +211,7 @@ exports.recoverInvocationSigner = function recoverInvocationSigner(_a) {
 };
 exports.signInvocations = function signInvocations(_a) {
     var invocations = _a.invocations, privateKey = _a.privateKey, contractInfo = _a.contractInfo;
+    //console.log('signInvocations', ...arguments);
     var chainId = contractInfo.chainId, verifyingContract = contractInfo.verifyingContract, name = contractInfo.name;
     var typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
     var signature = sigUtil.signTypedData({
@@ -215,6 +227,7 @@ exports.signInvocations = function signInvocations(_a) {
 };
 exports.signDelegation = function signDelegation(_a) {
     var delegation = _a.delegation, key = _a.key, contractInfo = _a.contractInfo;
+    //console.log('signDelegation', ...arguments);
     var chainId = contractInfo.chainId, verifyingContract = contractInfo.verifyingContract, name = contractInfo.name;
     var typedMessage = createTypedMessage(verifyingContract, delegation, 'Delegation', name, chainId);
     var signature = sigUtil.signTypedData({
@@ -255,12 +268,17 @@ exports.recoverRevocationSignature = function recoverRevocationSignature(signedR
     });
     return signer;
 };
-exports.validateInvitation = function validateInvitation(contractInfo, invitation) {
+exports.validateInvitation = function validateInvitation(_a) {
+    var contractInfo = _a.contractInfo, invitation = _a.invitation;
     var chainId = contractInfo.chainId, verifyingContract = contractInfo.verifyingContract, name = contractInfo.name;
     if (!invitation) {
         throw new Error('Invitation is required');
     }
     var signedDelegations = invitation.signedDelegations, key = invitation.key;
+    if (signedDelegations.length === 0 && key && typeof key === 'string') {
+        // we have to assume this is a root invitation, and cannot really validate it without trying things on chain.
+        return true;
+    }
     // Trying to follow the code from Delegatable.sol as closely as possible here
     // To ensure readable correctness.
     var intendedSender = exports.recoverDelegationSigner(signedDelegations[0], {
@@ -335,6 +353,7 @@ exports.createInvitation = function createInvitation(opts) {
  */
 exports.createDelegatedInvitation = function createDelegatedInvitation(_a) {
     var contractInfo = _a.contractInfo, recipientAddress = _a.recipientAddress, invitation = _a.invitation, delegation = _a.delegation, key = _a.key;
+    //console.log('createDelegatedInvitation', ...arguments);
     var chainId = contractInfo.chainId, verifyingContract = contractInfo.verifyingContract, name = contractInfo.name;
     var signedDelegations = invitation.signedDelegations;
     var delegatorKey = key || invitation.key;
@@ -367,13 +386,9 @@ exports.createDelegatedInvitation = function createDelegatedInvitation(_a) {
         delegation: delegation
     });
     var newInvite = {
-        signedDelegations: __spreadArray(__spreadArray([], __read(signedDelegations), false), [newSignedDelegation], false)
+        signedDelegations: __spreadArray(__spreadArray([], __read(signedDelegations), false), [newSignedDelegation], false),
+        key: (delegate === null || delegate === void 0 ? void 0 : delegate.key) || undefined
     };
-    // If a recipient was specified, we just attach the intended address.
-    // If no recipient was specified, we include the delegate key.
-    if (delegate.key) {
-        newInvite.key = delegate.key;
-    }
     return newInvite;
 };
 /* Allows an owner to create a delegation
@@ -383,10 +398,12 @@ exports.createDelegatedInvitation = function createDelegatedInvitation(_a) {
   */
 exports.createFirstDelegatedInvitation = function createFirstDelegatedInvitation(_a) {
     var contractInfo = _a.contractInfo, recipientAddress = _a.recipientAddress, key = _a.key, delegation = _a.delegation;
+    //console.log('createFirstDelegatedInvitation', ...arguments);
     var verifyingContract = contractInfo.verifyingContract;
     var delegate;
     if (!recipientAddress) {
         delegate = exports.generateAccount();
+        recipientAddress = delegate.address;
     }
     else {
         delegate = {
@@ -404,15 +421,16 @@ exports.createFirstDelegatedInvitation = function createFirstDelegatedInvitation
                 }]
         };
     }
+    else {
+        if (!delegation.authority) {
+            delegation.authority = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        }
+    }
     var newSignedDelegation = exports.signDelegation({ delegation: delegation, key: key, contractInfo: contractInfo });
     var newInvite = {
-        signedDelegations: [newSignedDelegation]
+        signedDelegations: [newSignedDelegation],
+        key: (delegate === null || delegate === void 0 ? void 0 : delegate.key) || undefined
     };
-    // If a recipient was specified, we let them be implicit in the delegation. 
-    // If no recipient was specified, we include the delegate key.
-    if (!recipientAddress && (delegate === null || delegate === void 0 ? void 0 : delegate.key)) {
-        newInvite.key = delegate.key;
-    }
     return newInvite;
 };
 exports.fromHexString = function fromHexString(hexString) {
@@ -435,10 +453,19 @@ exports.toHexString = function toHexString(buffer) {
 exports.generateAccount = function generateAccount() {
     var privKey = secp.utils.randomPrivateKey();
     var pubKey = secp.getPublicKey(privKey);
-    var pubKeyHash = keccak_256(pubKey, 32);
-    var privKeyAddress = exports.toHexString(pubKeyHash.subarray(24));
+    var pubKeyHash = keccak_256(pubKey, 32); // 32 bytes
+    var subarray = pubKeyHash.subarray(32 - 20); // cuts from the 24th byte on
+    var address = exports.toHexString(subarray);
     return {
-        address: privKeyAddress,
-        key: privKey
+        address: '0x' + address,
+        key: exports.toHexString(privKey)
     };
 };
+function addressForKey(key) {
+    var privKey = exports.fromHexString(key);
+    var pubKey = secp.getPublicKey(privKey);
+    var pubKeyHash = keccak_256(pubKey, 32); // 32 bytes
+    var subarray = pubKeyHash.subarray(32 - 20); // cuts from the 24th byte on
+    var address = exports.toHexString(subarray);
+    return '0x' + address;
+}

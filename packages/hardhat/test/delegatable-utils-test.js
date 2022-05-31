@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const friendlyTypes = require('../types');
 const BigNumber = ethers.BigNumber;
-const { createMembership } = require('eth-delegatable-utils'); 
+const { createMembership, validateInvitation } = require('eth-delegatable-utils');
 const createTypedMessage = require('../scripts/createTypedMessage');
 const sigUtil = require('eth-sig-util');
 const {
@@ -58,7 +58,7 @@ describe(CONTRACT_NAME, function () {
     const contractInfo = {
       chainId,
       verifyingContract: yourContract.address,
-      name: CONTRACT_NAME,      
+      name: CONTRACT_NAME,
     };
     const membership1 = createMembership({
       key: ownerHexPrivateKey,
@@ -113,7 +113,7 @@ describe(CONTRACT_NAME, function () {
   })
   */
 
-  it('delegates can delegate', async () => {
+  it.only('delegates can delegate', async () => {
     const [owner, addr1, addr2, addr3] = await ethers.getSigners();
     console.log(`owner: ${owner.address}`);
     console.log(`addr1: ${addr1.address}`);
@@ -126,13 +126,12 @@ describe(CONTRACT_NAME, function () {
     const contractInfo = {
       chainId,
       verifyingContract: yourContract.address,
-      name: CONTRACT_NAME,      
+      name: CONTRACT_NAME,
     };
     const ownerMembership = createMembership({
       contractInfo,
       key: ownerHexPrivateKey,
-    })
-
+    });
 
     /* If no delegation object is provided, a basic one is automatically generated.
      * The verifyingContract is used as a base caveat, and is passed terms of 0.
@@ -152,6 +151,7 @@ describe(CONTRACT_NAME, function () {
       key: account1PrivKey,
       contractInfo,
     });
+    console.log('account 1 membership created');
 
     // First delegate signs the second delegation:
     const delegation2 = {
@@ -159,17 +159,33 @@ describe(CONTRACT_NAME, function () {
       // Absent authority will auto generate from the invitation that initialized this membership.
       caveats: [],
     };
+    console.log('generating account 2 invitation');
     const account2Invitation = account1Membership.createInvitation({
       delegation: delegation2,
     });
+    console.log('account 2 invitation', account2Invitation);
     const account2Membership = createMembership({
       invitation: account2Invitation,
       key: account2PrivKey,
       contractInfo,
     });
+    console.log('account2 membership created', account2Membership);
+
+    // Third delegation is to a generated invite (no key in advance):
+    const account3Invitation = account2Membership.createInvitation();
+    console.log('account3 invitation', JSON.stringify(account3Invitation, null, 2))
+    expect(validateInvitation({
+      invitation: account3Invitation,
+      contractInfo,
+    })).to.equal(true);
+    const account3Membership = createMembership({
+      invitation: account3Invitation,
+      contractInfo,
+    });
 
     // Second delegate signs the invocation message:
     const desiredTx = await yourContract.populateTransaction.setPurpose(targetString);
+    console.log('desiredTx is ', desiredTx);
     const invocationMessage = {
       replayProtection: {
         nonce: '0x01',
@@ -183,7 +199,7 @@ describe(CONTRACT_NAME, function () {
         },
       }],
     };
-    const signedInvocations = account2Membership.signInvocations(invocationMessage);
+    const signedInvocations = account3Membership.signInvocations(invocationMessage);
 
     // A third party can submit the invocation method to the chain:
     const res = await yourContract.connect(addr3).invoke([signedInvocations]);
@@ -205,7 +221,7 @@ describe(CONTRACT_NAME, function () {
     const contractInfo = {
       chainId,
       verifyingContract: yourContract.address,
-      name: CONTRACT_NAME,      
+      name: CONTRACT_NAME,
     };
     const util = generateUtil(contractInfo);
 
@@ -276,7 +292,7 @@ describe(CONTRACT_NAME, function () {
     const contractInfo = {
       chainId,
       verifyingContract: yourContract.address,
-      name: CONTRACT_NAME,      
+      name: CONTRACT_NAME,
     };
     const util = generateUtil(contractInfo);
 
@@ -294,7 +310,7 @@ describe(CONTRACT_NAME, function () {
       authority: '0x0000000000000000000000000000000000000000000000000000000000000000',
       caveats: [{
         enforcer: allowListEnforcer.address,
-        terms: '0x00000000', 
+        terms: '0x00000000',
       }],
     };
 

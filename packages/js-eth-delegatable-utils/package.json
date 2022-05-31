@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "npx tsc index.ts --downlevelIteration",
+    "watch": "nodemon --exec 'npx tsc index.ts --downlevelIteration' --watch ./index.ts",
     "test": "node test.js"
   },
   "author": "",

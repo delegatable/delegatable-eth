@@ -29,10 +29,15 @@ type Caveat = {
   terms: string,
 }
 
-type Invitation = {
-  key?: string, // Optionally included receiving key
+type Invitation = KeylessInvitation | KeyedInvitation;
+
+type KeylessInvitation = {
   signedDelegations: Array<SignedDelegation>,
   contractInfo?: ContractInfo,
+}
+
+type KeyedInvitation = KeylessInvitation &{
+  key: string,
 }
 
 type InvokableTransaction = {
@@ -67,11 +72,21 @@ type ContractInfo = {
   chainId: number,
 }
 
-type MembershipOpts = {
-  key?: string,
-  invitation?: Invitation,
-  contractInfo?: ContractInfo,
+type OwnerMembershipOpts = {
+  contractInfo: ContractInfo,
+  key: string,
 }
+
+type KeyInviteMembershipOpts = {
+  invitation: Invitation,
+  key: string,
+}
+
+type KeylessInviteMembershipOpts = {
+  invitation: Invitation,
+}
+
+type MembershipOpts = OwnerMembershipOpts | KeyInviteMembershipOpts | KeylessInviteMembershipOpts;
 
 type IntentionToRevoke = {
   delegationHash: string,
@@ -82,7 +97,7 @@ type SignedIntentionToRevoke = {
 }
 
 type Membership = {
-  createInvitation (opts: { recipientAddress?: string, delegation: Delegation }): Invitation,
+  createInvitation (opts?: { recipientAddress?: string, delegation?: Delegation }): Invitation,
   createMembershipFromDelegation (delegation: Delegation): Membership,
   signDelegation (delegation: Delegation): SignedDelegation,
   signInvocations (invocations: Invocations): SignedInvocation,
@@ -93,33 +108,53 @@ type Membership = {
  * It creates an object that can be used to sign a delegation, or revoke a delegation.
  * It can also be used to create invitation objects, and can be instantiated with those invitation objects.
  */
-exports.createMembership = function createMembership (opts: MembershipOpts = {}): Membership {
-  let { invitation, key, contractInfo } = opts;
+exports.createMembership = function createMembership (opts: MembershipOpts): Membership {
+  //console.log('createMembership', ...arguments);
+  let invitation, key, contractInfo;
+
+  if ('invitation' in opts) {
+    invitation = opts.invitation;
+  }
+
+  if ('key' in opts) {
+    key = opts.key;
+  }
+
+  if ('contractInfo' in opts) {
+    contractInfo = opts.contractInfo;
+  }
+
   if (!invitation && !key) {
     throw new Error('Either an invitation or a key is required to initialize membership.');
   }
-  if (!key) {
+
+  if (!key && invitation) {
     key = invitation.key;
 
     if (!contractInfo && invitation.contractInfo) {
       contractInfo = invitation.contractInfo;
     }
   }
+
+  if (invitation) {
+    exports.validateInvitation({ invitation, contractInfo });
+  }
+
   if (!contractInfo || !contractInfo.verifyingContract) {
     throw new Error('Contract info must be provided to initialize membership.');
   }
 
   return {
-    createInvitation ({ recipientAddress, delegation }) {
-      if (invitation) {
-        if (!('authority' in delegation)) {
-          const { signedDelegations } = invitation;
-          const lastSignedDelegation = signedDelegations[signedDelegations.length - 1];
-          const delegationHash = exports.createSignedDelegationHash(lastSignedDelegation);
-          const hexHash = '0x' + delegationHash.toString('hex');
-          delegation.authority = hexHash;
-        }
+    createInvitation ({ recipientAddress, delegation } = {}): Invitation {
 
+      if (!invitation) {
+        return exports.createFirstDelegatedInvitation({ contractInfo, recipientAddress, delegation, key });
+      }
+
+      // Having an invitation means there may be signedDelegations to chain from:
+      if (invitation?.signedDelegations?.length > 0) {
+        return exports.createFirstDelegatedInvitation({ contractInfo, recipientAddress, delegation, key });
+      } else {
         const newInvitation = exports.createDelegatedInvitation({
           contractInfo,
           recipientAddress: recipientAddress || delegation.delegate,
@@ -129,11 +164,6 @@ exports.createMembership = function createMembership (opts: MembershipOpts = {})
         });
         return newInvitation;
       }
-
-      if (!('authority' in delegation)) {
-        delegation.authority = '0x0000000000000000000000000000000000000000';
-      }
-      return exports.createFirstDelegatedInvitation({ contractInfo, recipientAddress, delegation, key });
     },
 
     createMembershipFromDelegation (delegation: Partial<Delegation>) {
@@ -201,8 +231,10 @@ exports.createMembership = function createMembership (opts: MembershipOpts = {})
 
     signInvocations (invocations: Invocations) {
       invocations.batch.forEach(invocation => {
-        if (invitation) {
-          invocation.authority = invitation.signedDelegations;
+        if (invitation && invitation.signedDelegations && invitation.signedDelegations.length > 0) {
+          if (!('authority' in invocation)) {
+            invocation.authority = invitation.signedDelegations;
+          }
         } else {
           invocation.authority = [];
         }
@@ -280,6 +312,7 @@ exports.recoverInvocationSigner = function recoverInvocationSigner ({ signedInvo
 
 exports.signInvocations = function signInvocations({ invocations, privateKey, contractInfo }
   : { invocations: Invocations, privateKey: string, contractInfo: ContractInfo}): SignedInvocation {
+    //console.log('signInvocations', ...arguments);
   const { chainId, verifyingContract, name } = contractInfo;
   const typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
 
@@ -298,6 +331,7 @@ exports.signInvocations = function signInvocations({ invocations, privateKey, co
 }
 
 exports.signDelegation = function signDelegation ({ delegation, key, contractInfo }): SignedDelegation {
+  //console.log('signDelegation', ...arguments);
   const { chainId, verifyingContract, name } = contractInfo;
   const typedMessage = createTypedMessage(verifyingContract, delegation, 'Delegation', name, chainId);
 
@@ -348,7 +382,7 @@ exports.recoverRevocationSignature = function recoverRevocationSignature (signed
   return signer;
 }
 
-exports.validateInvitation = function validateInvitation (contractInfo, invitation) {
+exports.validateInvitation = function validateInvitation ({ contractInfo, invitation }) {
   const { chainId, verifyingContract, name } = contractInfo;
 
   if (!invitation) {
@@ -356,6 +390,11 @@ exports.validateInvitation = function validateInvitation (contractInfo, invitati
   }
 
   const { signedDelegations, key } = invitation;
+
+  if (signedDelegations.length === 0 && key && typeof key === 'string') {
+    // we have to assume this is a root invitation, and cannot really validate it without trying things on chain.
+    return true;
+  }
 
   // Trying to follow the code from Delegatable.sol as closely as possible here
   // To ensure readable correctness.
@@ -450,6 +489,7 @@ exports.createInvitation = function createInvitation (opts: {
 exports.createDelegatedInvitation = function createDelegatedInvitation({
   contractInfo, recipientAddress, invitation, delegation, key
 }): Invitation {
+  //console.log('createDelegatedInvitation', ...arguments);
   const { chainId, verifyingContract, name } = contractInfo;
   const { signedDelegations } = invitation;
   const delegatorKey = key || invitation.key;
@@ -487,13 +527,9 @@ exports.createDelegatedInvitation = function createDelegatedInvitation({
   });
   const newInvite: Invitation = {
     signedDelegations: [...signedDelegations, newSignedDelegation],
+    key: delegate?.key || undefined,
   }
 
-  // If a recipient was specified, we just attach the intended address.
-  // If no recipient was specified, we include the delegate key.
-  if (delegate.key) {
-    newInvite.key = delegate.key;
-  }
   return newInvite;
 }
 
@@ -505,11 +541,13 @@ exports.createDelegatedInvitation = function createDelegatedInvitation({
 exports.createFirstDelegatedInvitation = function createFirstDelegatedInvitation({
   contractInfo, recipientAddress, key, delegation
 }): Invitation {
+  //console.log('createFirstDelegatedInvitation', ...arguments);
   const { verifyingContract } = contractInfo;
 
   let delegate: Account;
   if (!recipientAddress) {
     delegate = exports.generateAccount();
+    recipientAddress = delegate.address;
   } else {
     delegate = {
       address: recipientAddress
@@ -527,18 +565,18 @@ exports.createFirstDelegatedInvitation = function createFirstDelegatedInvitation
         terms: '0x0000000000000000000000000000000000000000000000000000000000000000',
       }]
     }
+  } else {
+    if (!delegation.authority) {
+      delegation.authority = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    }
   }
 
   const newSignedDelegation = exports.signDelegation({ delegation, key, contractInfo });
   const newInvite: Invitation = {
     signedDelegations: [newSignedDelegation],
+    key: delegate?.key || undefined,
   }
 
-  // If a recipient was specified, we let them be implicit in the delegation. 
-  // If no recipient was specified, we include the delegate key.
-  if (!recipientAddress && delegate?.key) {
-    newInvite.key = delegate.key;
-  }
   return newInvite;
 }
 
@@ -569,10 +607,20 @@ type Account = {
 exports.generateAccount = function generateAccount (): Account {
   const privKey = secp.utils.randomPrivateKey();
   const pubKey = secp.getPublicKey(privKey);
-  const pubKeyHash = keccak_256(pubKey, 32);
-  const privKeyAddress = exports.toHexString(pubKeyHash.subarray(24));
+  const pubKeyHash = keccak_256(pubKey, 32); // 32 bytes
+  const subarray = pubKeyHash.subarray(32 - 20) // cuts from the 24th byte on
+  const address = exports.toHexString(subarray);
   return {
-    address: privKeyAddress,
-    key: privKey,
+    address: '0x' + address,
+    key: exports.toHexString(privKey),
   }
+}
+
+function addressForKey (key: string): string {
+  const privKey = exports.fromHexString(key);
+  const pubKey = secp.getPublicKey(privKey);
+  const pubKeyHash = keccak_256(pubKey, 32); // 32 bytes
+  const subarray = pubKeyHash.subarray(32 - 20) // cuts from the 24th byte on
+  const address = exports.toHexString(subarray);
+  return '0x' + address;
 }

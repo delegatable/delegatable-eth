@@ -35,4 +35,26 @@ contract YourContract is Ownable, Delegatable {
     }
     return sender;
   }
+
+  /**
+   * This is a recommended method to implement. Most contracts will not intend to delegate all of their functionality.
+   * Rather than rely on an external caveat in these cases, we recommend having a "base caveat" that you interpret locally.
+   * This one simply disallows the ownership functions.
+   */
+  function enforceCaveat(
+    bytes calldata terms,
+    Transaction calldata transaction,
+    bytes32 delegationHash
+  ) public pure returns (bool) {
+    // Owner methods are not delegatable in this contract:
+    bytes4 targetSig = bytes4(transaction.data[0:4]);
+
+    // transferOwnership(address newOwner)
+    require(targetSig != 0xf2fde38b, "transferOwnership is not delegatable");
+
+    // renounceOwnership() 
+    require(targetSig != 0x79ba79d8, "renounceOwnership is not delegatable");
+
+    return true;
+  }
 }
