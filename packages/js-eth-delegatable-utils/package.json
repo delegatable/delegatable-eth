@@ -1,6 +1,6 @@
 {
   "name": "eth-delegatable-utils",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -16,8 +16,7 @@
     "@noble/secp256k1": "^1.5.5",
     "eth-simple-keyring": "^4.2.0",
     "ethereumjs-util": "^7.1.4",
-    "ethers": "^5.6.8",
-    "micro-eth-signer": "^0.4.7"
+    "ethers": "^5.6.8"
   },
   "devDependencies": {
     "tape": "^5.5.3",
