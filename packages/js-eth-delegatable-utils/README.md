@@ -47,6 +47,21 @@ const bobMembership = createMembership({
   invitation,
 });
 
+// Invitations can also include arbitrary caveats, which are enforced by CaveatEnforcer contracts.
+// https://github.com/danfinlay/delegatable-eth/tree/main/packages/hardhat/contracts/caveat-enforcers
+// If no `delegation` paramter is provided, a default one is generated that points at the verifyingContract.
+const carolInvitation = bobMembership.createInvitation({
+  delegation: {
+    caveats: [
+      {
+        enforcer: ENFORCER_CONTRACT_ADDRESS,
+        terms: BYTES_TERMS_INTERPRETED_BY_ENFORCER,
+      }
+    ],
+  }
+});
+
+
 // Users can then sign invocations with their memberships.
 // First we'll construct an invocation.
 // Here's how you would use ethers to generate transaction data for a MetaTransaction.
@@ -66,7 +81,7 @@ const invocation = {
 const queue = Math.floor(Math.random() * 100000000);
 
 // Then you can just sign the invocations:
-const signedInvocations = membership.signInvocations({
+const signedInvocations = carolMembership.signInvocations({
   batch: invocations,
   replayProtection: {
     nonce: 1,
