@@ -9,10 +9,6 @@ const { abi } = require('./artifacts');
 const typedMessage = require('./types');
 const Keyring = require('eth-simple-keyring');
 const { ethers } = require('ethers');
-const secp = require('@noble/secp256k1');
-const {
-  keccak_256,
-} = require('@noble/hashes/sha3');
 
 type SignedDelegation = {
   signature: string,

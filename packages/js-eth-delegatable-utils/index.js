@@ -31,8 +31,6 @@ var abi = require('./artifacts').abi;
 var typedMessage = require('./types');
 var Keyring = require('eth-simple-keyring');
 var ethers = require('ethers').ethers;
-var secp = require('@noble/secp256k1');
-var keccak_256 = require('@noble/hashes/sha3').keccak_256;
 /* This is designed to be a particularly convenient method for interacting with delegations.
  * It creates an object that can be used to sign a delegation, or revoke a delegation.
  * It can also be used to create invitation objects, and can be instantiated with those invitation objects.
