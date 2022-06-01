@@ -7,7 +7,8 @@ const {
 
 const { abi } = require('./artifacts');
 const typedMessage = require('./types');
-const { Address } = require('micro-eth-signer');
+const Keyring = require('eth-simple-keyring');
+const { ethers } = require('ethers');
 const secp = require('@noble/secp256k1');
 const {
   keccak_256,
@@ -611,15 +612,17 @@ type Account = {
 }
 
 exports.generateAccount = function generateAccount (): Account {
-  const privKey = secp.utils.randomPrivateKey();
-  const address = exports.addressForKey(privKey);
-  return {
+  const wallet = ethers.Wallet.createRandom();
+  const address = wallet.address;
+  const key = wallet.privateKey;
+  const account = {
     address,
-    key: exports.toHexString(privKey),
+    key: key,
   }
+  return account;
 }
 
 exports.addressForKey = function addressForKey (key: string): string {
-  const addr = Address.fromPrivateKey(key);
-  return addr;
+  const wallet = ethers.Wallet.fromPrivateKey(key);
+  return wallet.address;
 }

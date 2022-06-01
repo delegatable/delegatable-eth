@@ -29,7 +29,8 @@ var sigUtil = require('@metamask/eth-sig-util');
 var TypedDataUtils = sigUtil.TypedDataUtils;
 var abi = require('./artifacts').abi;
 var typedMessage = require('./types');
-var Address = require('micro-eth-signer').Address;
+var Keyring = require('eth-simple-keyring');
+var ethers = require('ethers').ethers;
 var secp = require('@noble/secp256k1');
 var keccak_256 = require('@noble/hashes/sha3').keccak_256;
 /* This is designed to be a particularly convenient method for interacting with delegations.
@@ -454,14 +455,16 @@ exports.toHexString = function toHexString(buffer) {
     return __spreadArray([], __read(buffer), false).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
 };
 exports.generateAccount = function generateAccount() {
-    var privKey = secp.utils.randomPrivateKey();
-    var address = exports.addressForKey(privKey);
-    return {
+    var wallet = ethers.Wallet.createRandom();
+    var address = wallet.address;
+    var key = wallet.privateKey;
+    var account = {
         address: address,
-        key: exports.toHexString(privKey)
+        key: key
     };
+    return account;
 };
 exports.addressForKey = function addressForKey(key) {
-    var addr = Address.fromPrivateKey(key);
-    return addr;
+    var wallet = ethers.Wallet.fromPrivateKey(key);
+    return wallet.address;
 };
