@@ -1,5 +1,7 @@
 # Delegatable
 
+[The solidity maintenance has moved to this dedicated repository](https://github.com/delegatable/delegatable-sol)
+
 An abstract solidity contract that any contract can easily integrate to add a ton of improvements to that contract's user and developer experience for all of its functions:
 - Allow users to sign "invocations" instead of transactions, which bring lots of benefits.
 - Invocations bring the full user-readability of [signTypedData](https://docs.metamask.io/guide/signing-data.html#sign-typed-data-v4) for all of that app's operations.
