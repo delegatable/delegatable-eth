@@ -321,7 +321,9 @@ exports.signInvocation = function signInvocations({ invocation, privateKey, cont
       queue: String(Math.floor(Math.random() * 1_000_000_000)),
     },
   };
-  const typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
+  const typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocation', name, chainId);
+  console.log('typed invocation message to sign:')
+  console.log(JSON.stringify(typedMessage, null, 2));
 
   const signature = sigUtil.signTypedData({
     privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
@@ -371,6 +373,7 @@ exports.signDelegation = function signDelegation ({ delegation, key, contractInf
   const signedDelegation: SignedDelegation = {
     signature,
     delegation,
+
     signerIsContract: false,
   }
 

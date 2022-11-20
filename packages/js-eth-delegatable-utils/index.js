@@ -215,7 +215,9 @@ exports.signInvocation = function signInvocations(_a) {
             queue: String(Math.floor(Math.random() * 1000000000))
         }
     };
-    var typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
+    var typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocation', name, chainId);
+    console.log('typed invocation message to sign:');
+    console.log(JSON.stringify(typedMessage, null, 2));
     var signature = sigUtil.signTypedData({
         privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
         data: typedMessage.data,
