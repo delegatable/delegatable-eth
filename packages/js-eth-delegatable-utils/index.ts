@@ -311,9 +311,8 @@ exports.recoverInvocationSigner = function recoverInvocationSigner ({ signedInvo
   return signer;
 }
 
-exports.signInvocation = function signInvocations({ invocation, privateKey, contractInfo }
+exports.signInvocation = function signInvocation({ invocation, privateKey, contractInfo }
   : { invocation: Invocation, privateKey: string, contractInfo: ContractInfo}): SignedInvocation {
-  const { chainId, verifyingContract, name } = contractInfo;
   const invocations: Invocations = {
     batch: [invocation],
     replayProtection: {
@@ -321,23 +320,8 @@ exports.signInvocation = function signInvocations({ invocation, privateKey, cont
       queue: String(Math.floor(Math.random() * 1_000_000_000)),
     },
   };
-  const typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocation', name, chainId);
-  console.log('typed invocation message to sign:')
-  console.log(JSON.stringify(typedMessage, null, 2));
 
-  const signature = sigUtil.signTypedData({
-    privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
-    data: typedMessage.data,
-    version: 'V4',
-  });
-
-  const signedInvocations = {
-    signature,
-    signerIsContract: false,
-    invocations: invocations,
-  }
-
-  return signedInvocations[0];
+  return exports.signInvocations({ invocations, privateKey, contractInfo });
 }
 
 exports.signInvocations = function signInvocations({ invocations, privateKey, contractInfo }

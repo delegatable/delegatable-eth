@@ -205,9 +205,8 @@ exports.recoverInvocationSigner = function recoverInvocationSigner(_a) {
     });
     return signer;
 };
-exports.signInvocation = function signInvocations(_a) {
+exports.signInvocation = function signInvocation(_a) {
     var invocation = _a.invocation, privateKey = _a.privateKey, contractInfo = _a.contractInfo;
-    var chainId = contractInfo.chainId, verifyingContract = contractInfo.verifyingContract, name = contractInfo.name;
     var invocations = {
         batch: [invocation],
         replayProtection: {
@@ -215,20 +214,7 @@ exports.signInvocation = function signInvocations(_a) {
             queue: String(Math.floor(Math.random() * 1000000000))
         }
     };
-    var typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocation', name, chainId);
-    console.log('typed invocation message to sign:');
-    console.log(JSON.stringify(typedMessage, null, 2));
-    var signature = sigUtil.signTypedData({
-        privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
-        data: typedMessage.data,
-        version: 'V4'
-    });
-    var signedInvocations = {
-        signature: signature,
-        signerIsContract: false,
-        invocations: invocations
-    };
-    return signedInvocations[0];
+    return exports.signInvocations({ invocations: invocations, privateKey: privateKey, contractInfo: contractInfo });
 };
 exports.signInvocations = function signInvocations(_a) {
     var invocations = _a.invocations, privateKey = _a.privateKey, contractInfo = _a.contractInfo;
