@@ -13,6 +13,7 @@ const { ethers } = require('ethers');
 type SignedDelegation = {
   signature: string,
   delegation: SignedDelegation,
+  signerIsContract: boolean,
 }
 
 type Delegation = {
@@ -56,6 +57,7 @@ type Invocations = {
 type SignedInvocation = {
   invocations: Invocations,
   signature: string,
+  signerIsContract: boolean,
 }
 
 type ReplayProtection = {
@@ -350,6 +352,7 @@ exports.signInvocations = function signInvocations({ invocations, privateKey, co
   const signedInvocations = {
     signature,
     invocations: invocations,
+    signerIsContract: false,
   }
 
   return signedInvocations;
@@ -365,9 +368,10 @@ exports.signDelegation = function signDelegation ({ delegation, key, contractInf
     version: 'V4',
   });
 
-  const signedDelegation = {
+  const signedDelegation: SignedDelegation = {
     signature,
     delegation,
+    signerIsContract: false,
   }
 
   return signedDelegation;

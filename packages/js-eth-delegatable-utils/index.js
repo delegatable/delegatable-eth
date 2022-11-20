@@ -239,7 +239,8 @@ exports.signInvocations = function signInvocations(_a) {
     });
     var signedInvocations = {
         signature: signature,
-        invocations: invocations
+        invocations: invocations,
+        signerIsContract: false
     };
     return signedInvocations;
 };
@@ -254,7 +255,8 @@ exports.signDelegation = function signDelegation(_a) {
     });
     var signedDelegation = {
         signature: signature,
-        delegation: delegation
+        delegation: delegation,
+        signerIsContract: false
     };
     return signedDelegation;
 };
