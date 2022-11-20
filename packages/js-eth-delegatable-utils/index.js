@@ -168,7 +168,7 @@ exports.generateUtil = function generateUtil(contractInfo) {
         createInvitation: function (delegation, privateKey) { return exports.createInvitation({ delegation: delegation, privateKey: privateKey, contractInfo: contractInfo }); },
         recoverDelegationSigner: function (signedDelegation) { return exports.recoverDelegationSigner(signedDelegation, contractInfo); },
         signInvocation: function (invocation, privateKey) { return exports.signInvocation({ invocation: invocation, privateKey: privateKey, contractInfo: contractInfo }); },
-        signInvocations: function (invocation, privateKey) { return exports.signInvocations({ invocation: invocation, privateKey: privateKey, contractInfo: contractInfo }); },
+        signInvocations: function (invocations, privateKey) { return exports.signInvocations({ invocations: invocations, privateKey: privateKey, contractInfo: contractInfo }); },
         recoverInvocationSigner: function (signedInvocation) { return exports.recoverInvocationSigner({ signedInvocation: signedInvocation, contractInfo: contractInfo }); },
         signRevocation: function (revocation, privateKey) { return exports.signRevocation(revocation, privateKey, contractInfo); },
         recoverRevocationSignature: function (signedRevocation) { return exports.recoverRevocationSignature(signedRevocation, contractInfo); }
