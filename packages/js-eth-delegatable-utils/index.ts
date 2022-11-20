@@ -266,6 +266,7 @@ exports.generateUtil = function generateUtil (contractInfo) {
     recoverDelegationSigner: (signedDelegation) => exports.recoverDelegationSigner(signedDelegation, contractInfo),
 
     signInvocation: (invocation, privateKey) => exports.signInvocation({ invocation, privateKey, contractInfo }),
+    signInvocations: (invocations, privateKey) => exports.signInvocations({ invocations, privateKey, contractInfo }),
     recoverInvocationSigner: (signedInvocation) => exports.recoverInvocationSigner({ signedInvocation, contractInfo }),
 
     signRevocation: (revocation, privateKey) => exports.signRevocation(revocation, privateKey, contractInfo),
