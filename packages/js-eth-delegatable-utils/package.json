@@ -1,6 +1,6 @@
 {
   "name": "eth-delegatable-utils",
-  "version": "2.1.5",
+  "version": "4.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {

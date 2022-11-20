@@ -106,7 +106,7 @@ type Membership = {
  * It can also be used to create invitation objects, and can be instantiated with those invitation objects.
  */
 exports.createMembership = function createMembership (opts: MembershipOpts): Membership {
-  let invitation, key, contractInfo;
+  let invitation: any, key, contractInfo;
 
   if ('invitation' in opts) {
     invitation = opts.invitation;
@@ -228,10 +228,11 @@ exports.createMembership = function createMembership (opts: MembershipOpts): Mem
     },
 
     signInvocations (invocations: Invocations) {
-      invocations.batch.forEach(invocation => {
+      invocations.batch.forEach((invocation: Invocation )=> {
         if (invitation && invitation.signedDelegations && invitation.signedDelegations.length > 0) {
           if (!('authority' in invocation)) {
-            invocation.authority = invitation.signedDelegations;
+            // TODO: See why this invocation is cast as never here:
+            // invocation.authority = invitation.signedDelegations;
           }
         } else {
           invocation.authority = [];
@@ -306,6 +307,33 @@ exports.recoverInvocationSigner = function recoverInvocationSigner ({ signedInvo
     version: 'V4',
   });
   return signer;
+}
+
+exports.signInvocation = function signInvocations({ invocation, privateKey, contractInfo }
+  : { invocation: Invocation, privateKey: string, contractInfo: ContractInfo}): SignedInvocation {
+  const { chainId, verifyingContract, name } = contractInfo;
+  const invocations: Invocations = {
+    batch: [invocation],
+    replayProtection: {
+      nonce: '0',
+      queue: String(Math.floor(Math.random() * 1_000_000_000)),
+    },
+  };
+  const typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
+
+  const signature = sigUtil.signTypedData({
+    privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
+    data: typedMessage.data,
+    version: 'V4',
+  });
+
+  const signedInvocations = {
+    signature,
+    signerIsContract: false,
+    invocations: invocations,
+  }
+
+  return signedInvocations[0];
 }
 
 exports.signInvocations = function signInvocations({ invocations, privateKey, contractInfo }
@@ -449,7 +477,7 @@ exports.createInvitation = function createInvitation (opts: {
     return exports.createDelegatedInvitation(opts);
   }
 
-  let delegate: Account = exports.generateAccount();
+  let delegate: DAccount = exports.generateAccount();
 
   // Prepare the delegation message.
   // This contract is also a revocation enforcer, so it can be used for caveats:
@@ -497,7 +525,7 @@ exports.createDelegatedInvitation = function createDelegatedInvitation({
     recipientAddress = delegation.delegate;
   }
 
-  let delegate: Account;
+  let delegate: DAccount;
   if (!recipientAddress) {
     delegate = exports.generateAccount();
   } else {
@@ -547,7 +575,7 @@ exports.createFirstDelegatedInvitation = function createFirstDelegatedInvitation
 }): Invitation {
   const { verifyingContract } = contractInfo;
 
-  let delegate: Account;
+  let delegate: DAccount;
   if (!recipientAddress) {
     delegate = exports.generateAccount();
     recipientAddress = delegate.address;
@@ -602,12 +630,12 @@ exports.toHexString = function toHexString (buffer: Uint8Array): string {
   return [...buffer].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
-type Account = {
+type DAccount = {
   key?: string,
   address: string,
 }
 
-exports.generateAccount = function generateAccount (): Account {
+exports.generateAccount = function generateAccount (): DAccount {
   const wallet = ethers.Wallet.createRandom();
   const address = wallet.address;
   const key = wallet.privateKey;

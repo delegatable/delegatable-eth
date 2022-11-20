@@ -14,14 +14,9 @@ var __read = (this && this.__read) || function (o, n) {
     }
     return ar;
 };
-var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
+var __spread = (this && this.__spread) || function () {
+    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+    return ar;
 };
 var types = require('./types');
 var createTypedMessage = require('./createTypedMessage');
@@ -144,7 +139,8 @@ exports.createMembership = function createMembership(opts) {
             invocations.batch.forEach(function (invocation) {
                 if (invitation && invitation.signedDelegations && invitation.signedDelegations.length > 0) {
                     if (!('authority' in invocation)) {
-                        invocation.authority = invitation.signedDelegations;
+                        // TODO: See why this invocation is cast as never here:
+                        // invocation.authority = invitation.signedDelegations;
                     }
                 }
                 else {
@@ -208,6 +204,29 @@ exports.recoverInvocationSigner = function recoverInvocationSigner(_a) {
         version: 'V4'
     });
     return signer;
+};
+exports.signInvocation = function signInvocations(_a) {
+    var invocation = _a.invocation, privateKey = _a.privateKey, contractInfo = _a.contractInfo;
+    var chainId = contractInfo.chainId, verifyingContract = contractInfo.verifyingContract, name = contractInfo.name;
+    var invocations = {
+        batch: [invocation],
+        replayProtection: {
+            nonce: '0',
+            queue: String(Math.floor(Math.random() * 1000000000))
+        }
+    };
+    var typedMessage = createTypedMessage(verifyingContract, invocations, 'Invocations', name, chainId);
+    var signature = sigUtil.signTypedData({
+        privateKey: exports.fromHexString(privateKey.indexOf('0x') === 0 ? privateKey.substring(2) : privateKey),
+        data: typedMessage.data,
+        version: 'V4'
+    });
+    var signedInvocations = {
+        signature: signature,
+        signerIsContract: false,
+        invocations: invocations
+    };
+    return signedInvocations[0];
 };
 exports.signInvocations = function signInvocations(_a) {
     var invocations = _a.invocations, privateKey = _a.privateKey, contractInfo = _a.contractInfo;
@@ -299,7 +318,7 @@ exports.validateInvitation = function validateInvitation(_a) {
         }
         var delegation = signedDelegation.delegation;
         if (delegationSigner !== canGrant) {
-            throw new Error("Delegation signer ".concat(delegationSigner, " of delegation ").concat(d, " does not match required signer ").concat(canGrant));
+            throw new Error("Delegation signer " + delegationSigner + " of delegation " + d + " does not match required signer " + canGrant);
         }
         var delegationHash = exports.createSignedDelegationHash(signedDelegation);
         // Skipping caveat evaluation for now
@@ -389,7 +408,7 @@ exports.createDelegatedInvitation = function createDelegatedInvitation(_a) {
         delegation: delegation
     });
     var newInvite = {
-        signedDelegations: __spreadArray(__spreadArray([], __read(signedDelegations), false), [newSignedDelegation], false),
+        signedDelegations: __spread(signedDelegations, [newSignedDelegation]),
         key: (delegate === null || delegate === void 0 ? void 0 : delegate.key) || undefined
     };
     return newInvite;
@@ -450,7 +469,7 @@ exports.fromHexString = function fromHexString(hexString) {
     return new Uint8Array(mapped);
 };
 exports.toHexString = function toHexString(buffer) {
-    return __spreadArray([], __read(buffer), false).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+    return __spread(buffer).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
 };
 exports.generateAccount = function generateAccount() {
     var wallet = ethers.Wallet.createRandom();
