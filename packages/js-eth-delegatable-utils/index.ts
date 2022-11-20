@@ -266,7 +266,7 @@ exports.generateUtil = function generateUtil (contractInfo) {
     recoverDelegationSigner: (signedDelegation) => exports.recoverDelegationSigner(signedDelegation, contractInfo),
 
     signInvocation: (invocation, privateKey) => exports.signInvocation({ invocation, privateKey, contractInfo }),
-    signInvocations: (invocations, privateKey) => exports.signInvocations({ invocations, privateKey, contractInfo }),
+    signInvocations: (invocation, privateKey) => exports.signInvocations({ invocation, privateKey, contractInfo }),
     recoverInvocationSigner: (signedInvocation) => exports.recoverInvocationSigner({ signedInvocation, contractInfo }),
 
     signRevocation: (revocation, privateKey) => exports.signRevocation(revocation, privateKey, contractInfo),
@@ -317,7 +317,7 @@ exports.signInvocation = function signInvocation({ invocation, privateKey, contr
   const invocations: Invocations = {
     batch: [invocation],
     replayProtection: {
-      nonce: '0',
+      nonce: '1',
       queue: String(Math.floor(Math.random() * 1_000_000_000)),
     },
   };
